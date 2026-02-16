@@ -97,3 +97,13 @@ class TestShipmentConcreteModel:
     def test_str_representation(self):
         shipment = Shipment(pk=42, provider="dummy", status="new")
         assert str(shipment) == "Shipment 42 (dummy: new)"
+
+
+@pytest.mark.django_db
+class TestMigrations:
+    def test_migration_is_consistent(self):
+        """makemigrations --check verifies no pending model changes."""
+        from django.core.management import call_command
+
+        # Raises SystemExit(1) if migrations are out of sync
+        call_command("makemigrations", "--check", "sendparcel_django")
