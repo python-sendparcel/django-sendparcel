@@ -13,6 +13,10 @@ class DjangoOrderAdapter:
 
     wrapped: Any
 
+    @property
+    def id(self) -> int:
+        return self.wrapped.id
+
     def get_total_weight(self) -> Decimal:
         return Decimal(str(self.wrapped.get_total_weight()))
 

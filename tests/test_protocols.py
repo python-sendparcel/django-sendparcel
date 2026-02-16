@@ -7,6 +7,7 @@ from sendparcel_django.protocols import (
 
 
 class OrderObj:
+    id = 42
     amount_weight = 2.5
 
     def get_total_weight(self):
@@ -37,6 +38,12 @@ def test_order_adapter_delegates_order_methods() -> None:
 
     assert adapter.get_total_weight() == 2.5
     assert adapter.get_sender_address()["country_code"] == "PL"
+
+
+def test_order_adapter_exposes_id() -> None:
+    adapter = DjangoOrderAdapter(OrderObj())
+
+    assert adapter.id == 42
 
 
 def test_shipment_adapter_exposes_core_fields() -> None:

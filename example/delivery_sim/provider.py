@@ -19,6 +19,7 @@ class DeliverySimProvider(BaseProvider):
     display_name: ClassVar[str] = "Symulator Dostawy"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
+    user_selectable: ClassVar[bool] = False
 
     async def create_shipment(self, **kwargs) -> ShipmentCreateResult:
         shipment_id = str(self.shipment.id)
