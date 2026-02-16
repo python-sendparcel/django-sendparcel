@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Przesyłka #{{ shipment.pk }} — SendParcel Demo{% endblock %}
+{% block title %}Shipment #{{ shipment.pk }} — SendParcel Demo{% endblock %}
 
-{% block page_title %}Przesyłka #{{ shipment.pk }}{% endblock %}
+{% block page_title %}Shipment #{{ shipment.pk }}{% endblock %}
 
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Szczegóły przesyłki</h3>
+        <h3 class="card-title">Shipment details</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Zamówienie</div>
+            <div class="datagrid-title">Order</div>
             <div class="datagrid-content">
               <a href="{% url 'shipping:order_detail' pk=shipment.order.pk %}">
                 #{{ shipment.order.pk }} — {{ shipment.order.description }}
@@ -22,23 +22,23 @@
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Dostawca</div>
+            <div class="datagrid-title">Provider</div>
             <div class="datagrid-content">{{ shipment.provider }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">ID zewnętrzne</div>
+            <div class="datagrid-title">External ID</div>
             <div class="datagrid-content">
               {{ shipment.external_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Numer śledzenia</div>
+            <div class="datagrid-title">Tracking number</div>
             <div class="datagrid-content">
               <strong>{{ shipment.tracking_number|default:"—" }}</strong>
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Utworzono</div>
+            <div class="datagrid-title">Created</div>
             <div class="datagrid-content">
               {{ shipment.created_at|date:"d.m.Y H:i" }}
             </div>
@@ -52,7 +52,7 @@
             class="btn btn-primary"
             target="_blank"
           >
-            Pobierz etykietę (PDF)
+            Download label (PDF)
           </a>
         </div>
       {% endif %}

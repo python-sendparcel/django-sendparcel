@@ -24,20 +24,20 @@ class OrderForm(forms.ModelForm):
             "description": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "np. Elektronika, Książki",
+                    "placeholder": "e.g. Electronics, Books",
                 }
             ),
             "package_size": forms.Select(attrs={"class": "form-select"}),
             "recipient_name": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "Jan Kowalski",
+                    "placeholder": "John Smith",
                 }
             ),
             "recipient_email": forms.EmailInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "jan@example.com",
+                    "placeholder": "john@example.com",
                 }
             ),
             "recipient_phone": forms.TextInput(
@@ -49,13 +49,13 @@ class OrderForm(forms.ModelForm):
             "recipient_line1": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "ul. Przykładowa 10/2",
+                    "placeholder": "10/2 Example St",
                 }
             ),
             "recipient_city": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "Kraków",
+                    "placeholder": "Krakow",
                 }
             ),
             "recipient_postal_code": forms.TextInput(
@@ -71,7 +71,7 @@ class CreateShipmentForm(forms.Form):
     """Form for creating a shipment from an order."""
 
     provider = forms.ChoiceField(
-        label="Dostawca",
+        label="Provider",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 

@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Zamówienia — SendParcel Demo{% endblock %}
+{% block title %}Orders — SendParcel Demo{% endblock %}
 
-{% block page_title %}Zamówienia{% endblock %}
+{% block page_title %}Orders{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">Lista zamówień</h3>
+    <h3 class="card-title">Order list</h3>
     <div class="card-actions">
       <a href="{% url 'shipping:order_create' %}" class="btn btn-primary">
-        Nowe zamówienie
+        New order
       </a>
     </div>
   </div>
@@ -20,11 +20,11 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Opis</th>
-            <th>Odbiorca</th>
-            <th>Rozmiar</th>
-            <th>Przesyłki</th>
-            <th>Utworzono</th>
+            <th>Description</th>
+            <th>Recipient</th>
+            <th>Size</th>
+            <th>Shipments</th>
+            <th>Created</th>
             <th></th>
           </tr>
         </thead>
@@ -48,7 +48,7 @@
                     {{ shipment.get_status_display }}
                   </a>
                 {% empty %}
-                  <span class="text-secondary">Brak</span>
+                  <span class="text-secondary">None</span>
                 {% endfor %}
               </td>
               <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
@@ -57,7 +57,7 @@
                   href="{% url 'shipping:order_detail' pk=order.pk %}"
                   class="btn btn-sm"
                 >
-                  Szczegóły
+                  Details
                 </a>
               </td>
             </tr>
@@ -68,16 +68,16 @@
   {% else %}
     <div class="card-body">
       <div class="empty">
-        <p class="empty-title">Brak zamówień</p>
+        <p class="empty-title">No orders</p>
         <p class="empty-subtitle text-secondary">
-          Utwórz pierwsze zamówienie, aby rozpocząć.
+          Create your first order to get started.
         </p>
         <div class="empty-action">
           <a
             href="{% url 'shipping:order_create' %}"
             class="btn btn-primary"
           >
-            Nowe zamówienie
+            New order
           </a>
         </div>
       </div>

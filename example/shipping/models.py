@@ -11,9 +11,9 @@ class Order(OrderModelMixin):
     """Demo order demonstrating sendparcel integration."""
 
     PACKAGE_SIZE_CHOICES: ClassVar[list[tuple[str, str]]] = [
-        ("S", "Mały (do 1 kg)"),
-        ("M", "Średni (do 5 kg)"),
-        ("L", "Duży (do 15 kg)"),
+        ("S", "Small (up to 1 kg)"),
+        ("M", "Medium (up to 5 kg)"),
+        ("L", "Large (up to 15 kg)"),
     ]
 
     PACKAGE_WEIGHTS: ClassVar[dict[str, Decimal]] = {
@@ -22,9 +22,9 @@ class Order(OrderModelMixin):
         "L": Decimal("10.0"),
     }
 
-    description = models.CharField("opis", max_length=255)
+    description = models.CharField("description", max_length=255)
     package_size = models.CharField(
-        "rozmiar paczki",
+        "package size",
         max_length=2,
         choices=PACKAGE_SIZE_CHOICES,
         default="M",
@@ -32,37 +32,37 @@ class Order(OrderModelMixin):
 
     # Sender (warehouse) fields — fixed for the demo
     sender_name = models.CharField(
-        "nazwa nadawcy", max_length=128, default="Przykładowy Magazyn"
+        "sender name", max_length=128, default="Example Warehouse"
     )
     sender_line1 = models.CharField(
-        "adres nadawcy", max_length=255, default="ul. Magazynowa 1"
+        "sender address", max_length=255, default="1 Warehouse St"
     )
     sender_city = models.CharField(
-        "miasto nadawcy", max_length=128, default="Warszawa"
+        "sender city", max_length=128, default="Warsaw"
     )
     sender_postal_code = models.CharField(
-        "kod pocztowy nadawcy", max_length=16, default="00-001"
+        "sender postal code", max_length=16, default="00-001"
     )
 
     # Recipient fields
-    recipient_name = models.CharField("nazwa odbiorcy", max_length=128)
-    recipient_email = models.EmailField("e-mail odbiorcy")
-    recipient_phone = models.CharField("telefon odbiorcy", max_length=32)
-    recipient_line1 = models.CharField("adres odbiorcy", max_length=255)
-    recipient_city = models.CharField("miasto odbiorcy", max_length=128)
+    recipient_name = models.CharField("recipient name", max_length=128)
+    recipient_email = models.EmailField("recipient email")
+    recipient_phone = models.CharField("recipient phone", max_length=32)
+    recipient_line1 = models.CharField("recipient address", max_length=255)
+    recipient_city = models.CharField("recipient city", max_length=128)
     recipient_postal_code = models.CharField(
-        "kod pocztowy odbiorcy", max_length=16
+        "recipient postal code", max_length=16
     )
 
-    created_at = models.DateTimeField("utworzono", auto_now_add=True)
+    created_at = models.DateTimeField("created at", auto_now_add=True)
 
     class Meta:
         ordering: ClassVar[list[str]] = ["-created_at"]
-        verbose_name = "zamówienie"
-        verbose_name_plural = "zamówienia"
+        verbose_name = "order"
+        verbose_name_plural = "orders"
 
     def __str__(self):
-        return f"Zamówienie #{self.pk}: {self.description}"
+        return f"Order #{self.pk}: {self.description}"
 
     def get_total_weight(self):
         return self.PACKAGE_WEIGHTS.get(self.package_size, Decimal("2.5"))
@@ -102,29 +102,29 @@ class Shipment(ShipmentModelMixin):
         Order,
         on_delete=models.CASCADE,
         related_name="shipments",
-        verbose_name="zamówienie",
+        verbose_name="order",
     )
-    created_at = models.DateTimeField("utworzono", auto_now_add=True)
+    created_at = models.DateTimeField("created at", auto_now_add=True)
 
     class Meta:
         ordering: ClassVar[list[str]] = ["-created_at"]
-        verbose_name = "przesyłka"
-        verbose_name_plural = "przesyłki"
+        verbose_name = "shipment"
+        verbose_name_plural = "shipments"
 
     def __str__(self):
-        return f"Przesyłka #{self.pk} ({self.get_status_display()})"
+        return f"Shipment #{self.pk} ({self.get_status_display()})"
 
     def get_status_display(self):
-        """Return Polish status label."""
+        """Return human-readable status label."""
         status_labels = {
-            "new": "Nowa",
-            "created": "Utworzona",
-            "label_ready": "Etykieta gotowa",
-            "in_transit": "W transporcie",
-            "out_for_delivery": "W doręczeniu",
-            "delivered": "Doręczona",
-            "cancelled": "Anulowana",
-            "failed": "Błąd",
-            "returned": "Zwrócona",
+            "new": "New",
+            "created": "Created",
+            "label_ready": "Label ready",
+            "in_transit": "In transit",
+            "out_for_delivery": "Out for delivery",
+            "delivered": "Delivered",
+            "cancelled": "Cancelled",
+            "failed": "Failed",
+            "returned": "Returned",
         }
         return status_labels.get(self.status, self.status)

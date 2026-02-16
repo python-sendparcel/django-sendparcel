@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Zamówienie #{{ order.pk }} — SendParcel Demo{% endblock %}
+{% block title %}Order #{{ order.pk }} — SendParcel Demo{% endblock %}
 
-{% block page_title %}Zamówienie #{{ order.pk }}{% endblock %}
+{% block page_title %}Order #{{ order.pk }}{% endblock %}
 
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Szczegóły zamówienia</h3>
+        <h3 class="card-title">Order details</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Opis</div>
+            <div class="datagrid-title">Description</div>
             <div class="datagrid-content">{{ order.description }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Rozmiar paczki</div>
+            <div class="datagrid-title">Package size</div>
             <div class="datagrid-content">
               <span class="badge bg-blue-lt">
                 {{ order.get_package_size_display }}
@@ -26,11 +26,11 @@
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Waga</div>
+            <div class="datagrid-title">Weight</div>
             <div class="datagrid-content">{{ order.get_total_weight }} kg</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Nadawca</div>
+            <div class="datagrid-title">Sender</div>
             <div class="datagrid-content">
               {{ order.sender_name }}<br />
               {{ order.sender_line1 }}<br />
@@ -38,7 +38,7 @@
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Odbiorca</div>
+            <div class="datagrid-title">Recipient</div>
             <div class="datagrid-content">
               {{ order.recipient_name }}<br />
               {{ order.recipient_line1 }}<br />
@@ -47,7 +47,7 @@
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Utworzono</div>
+            <div class="datagrid-title">Created</div>
             <div class="datagrid-content">
               {{ order.created_at|date:"d.m.Y H:i" }}
             </div>
@@ -60,7 +60,7 @@
   <div class="col-lg-5">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Utwórz przesyłkę</h3>
+        <h3 class="card-title">Create shipment</h3>
       </div>
       <div class="card-body">
         <form
@@ -69,11 +69,11 @@
         >
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label" for="id_provider">Dostawca</label>
+            <label class="form-label" for="id_provider">Provider</label>
             {{ shipment_form.provider }}
           </div>
           <button type="submit" class="btn btn-primary w-100">
-            Utwórz przesyłkę
+            Create shipment
           </button>
         </form>
       </div>
@@ -82,7 +82,7 @@
     {% if order.shipments.all %}
       <div class="card mt-3">
         <div class="card-header">
-          <h3 class="card-title">Przesyłki</h3>
+          <h3 class="card-title">Shipments</h3>
         </div>
         <div class="list-group list-group-flush">
           {% for shipment in order.shipments.all %}
@@ -92,7 +92,7 @@
             >
               <div class="d-flex justify-content-between align-items-center">
                 <div>
-                  <strong>Przesyłka #{{ shipment.pk }}</strong>
+                  <strong>Shipment #{{ shipment.pk }}</strong>
                   <br />
                   <small class="text-secondary">
                     {{ shipment.provider }} |

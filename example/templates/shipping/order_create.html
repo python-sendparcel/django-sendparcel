@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Nowe zamówienie — SendParcel Demo{% endblock %}
+{% block title %}New order — SendParcel Demo{% endblock %}
 
-{% block page_title %}Nowe zamówienie{% endblock %}
+{% block page_title %}New order{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -11,12 +11,12 @@
       {% csrf_token %}
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Dane zamówienia</h3>
+          <h3 class="card-title">Order details</h3>
         </div>
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-8">
-              <label class="form-label" for="id_description">Opis</label>
+              <label class="form-label" for="id_description">Description</label>
               {{ form.description }}
               {% if form.description.errors %}
                 <div class="invalid-feedback d-block">
@@ -26,7 +26,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label" for="id_package_size">
-                Rozmiar paczki
+                Package size
               </label>
               {{ form.package_size }}
               {% if form.package_size.errors %}
@@ -37,11 +37,11 @@
             </div>
           </div>
 
-          <h4 class="mt-4 mb-3">Dane odbiorcy</h4>
+          <h4 class="mt-4 mb-3">Recipient details</h4>
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label" for="id_recipient_name">
-                Imię i nazwisko
+                Full name
               </label>
               {{ form.recipient_name }}
               {% if form.recipient_name.errors %}
@@ -52,7 +52,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="id_recipient_email">
-                E-mail
+                Email
               </label>
               {{ form.recipient_email }}
               {% if form.recipient_email.errors %}
@@ -63,7 +63,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label" for="id_recipient_phone">
-                Telefon
+                Phone
               </label>
               {{ form.recipient_phone }}
               {% if form.recipient_phone.errors %}
@@ -74,7 +74,7 @@
             </div>
             <div class="col-md-8">
               <label class="form-label" for="id_recipient_line1">
-                Adres
+                Address
               </label>
               {{ form.recipient_line1 }}
               {% if form.recipient_line1.errors %}
@@ -85,7 +85,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="id_recipient_city">
-                Miasto
+                City
               </label>
               {{ form.recipient_city }}
               {% if form.recipient_city.errors %}
@@ -96,7 +96,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="id_recipient_postal_code">
-                Kod pocztowy
+                Postal code
               </label>
               {{ form.recipient_postal_code }}
               {% if form.recipient_postal_code.errors %}
@@ -112,10 +112,10 @@
             href="{% url 'shipping:order_list' %}"
             class="btn btn-link"
           >
-            Anuluj
+            Cancel
           </a>
           <button type="submit" class="btn btn-primary">
-            Utwórz zamówienie
+            Create order
           </button>
         </div>
       </div>

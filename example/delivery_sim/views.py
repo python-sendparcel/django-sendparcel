@@ -125,7 +125,7 @@ def _pdf_escape(value: str) -> str:
 @require_GET
 def label_pdf(request: HttpRequest, shipment_id: str) -> HttpResponse:
     """Return a generated PDF label for a shipment."""
-    label_text = f"Etykieta przesylki {shipment_id}"
+    label_text = f"Shipment label {shipment_id}"
     pdf_bytes = _build_label_pdf(label_text)
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (

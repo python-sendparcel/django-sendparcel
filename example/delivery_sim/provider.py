@@ -16,7 +16,7 @@ class DeliverySimProvider(BaseProvider):
     """Fake delivery provider for local development and demos."""
 
     slug: ClassVar[str] = "delivery-sim"
-    display_name: ClassVar[str] = "Symulator Dostawy"
+    display_name: ClassVar[str] = "Delivery Simulator"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
     user_selectable: ClassVar[bool] = False
@@ -47,9 +47,7 @@ class DeliverySimProvider(BaseProvider):
         )
         provided_token = headers.get("x-sim-token", "")
         if provided_token != expected_token:
-            raise InvalidCallbackError(
-                "Nieprawidłowy token zwrotny symulatora."
-            )
+            raise InvalidCallbackError("Invalid simulator callback token.")
 
     async def handle_callback(
         self, data: dict, headers: dict, **kwargs

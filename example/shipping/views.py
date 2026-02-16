@@ -37,7 +37,7 @@ def _get_provider_config() -> dict:
 
 @require_GET
 def order_list(request: HttpRequest) -> HttpResponse:
-    """Lista zamówień z informacją o przesyłkach."""
+    """List orders with shipment information."""
     orders = Order.objects.prefetch_related("shipments").all()
     return TemplateResponse(
         request,
@@ -48,7 +48,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
 
 @require_GET
 def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """Szczegóły zamówienia z formularzem tworzenia przesyłki."""
+    """Order details with shipment creation form."""
     order = get_object_or_404(
         Order.objects.prefetch_related("shipments"), pk=pk
     )
@@ -65,14 +65,14 @@ def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 def order_create(request: HttpRequest) -> HttpResponse:
-    """Tworzenie nowego zamówienia."""
+    """Create a new order."""
     if request.method == "POST":
         form = OrderForm(request.POST)
         if form.is_valid():
             order = form.save()
             messages.success(
                 request,
-                f"Zamówienie #{order.pk} zostało utworzone.",
+                f"Order #{order.pk} has been created.",
             )
             return redirect("shipping:order_detail", pk=order.pk)
     else:
@@ -87,13 +87,13 @@ def order_create(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def create_shipment(request: HttpRequest, order_pk: int) -> HttpResponse:
-    """Utwórz przesyłkę dla zamówienia przez ShipmentFlow."""
+    """Create a shipment for an order via ShipmentFlow."""
     order = get_object_or_404(Order, pk=order_pk)
     provider_choices = registry.get_choices()
     form = CreateShipmentForm(request.POST, provider_choices=provider_choices)
 
     if not form.is_valid():
-        messages.error(request, "Wybierz prawidłowego dostawcę.")
+        messages.error(request, "Please select a valid provider.")
         return redirect("shipping:order_detail", pk=order.pk)
 
     provider_slug = form.cleaned_data["provider"]
@@ -107,14 +107,14 @@ def create_shipment(request: HttpRequest, order_pk: int) -> HttpResponse:
         shipment = anyio.run(_async_create_shipment, flow, order, provider_slug)
         messages.success(
             request,
-            f"Przesyłka #{shipment.pk} została utworzona. "
-            f"Numer śledzenia: {shipment.tracking_number}",
+            f"Shipment #{shipment.pk} has been created. "
+            f"Tracking number: {shipment.tracking_number}",
         )
         return redirect("shipping:shipment_detail", pk=shipment.pk)
     except Exception as exc:
         messages.error(
             request,
-            f"Błąd tworzenia przesyłki: {exc}",
+            f"Shipment creation error: {exc}",
         )
         return redirect("shipping:order_detail", pk=order.pk)
 
@@ -132,7 +132,7 @@ async def _async_create_shipment(flow, order, provider_slug):
 
 @require_GET
 def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """Szczegóły przesyłki z informacją o śledzeniu."""
+    """Shipment details with tracking information."""
     shipment = get_object_or_404(
         Shipment.objects.select_related("order"), pk=pk
     )
@@ -145,7 +145,7 @@ def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_GET
 def shipment_tracking(request: HttpRequest, pk: int) -> HttpResponse:
-    """HTMX partial — odświeżony status przesyłki."""
+    """HTMX partial — refreshed shipment status."""
     shipment = get_object_or_404(Shipment, pk=pk)
     return TemplateResponse(
         request,

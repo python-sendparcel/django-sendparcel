@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Symulator dostawy — SendParcel Demo{% endblock %}
+{% block title %}Delivery simulator — SendParcel Demo{% endblock %}
 
-{% block page_title %}Symulator dostawy{% endblock %}
+{% block page_title %}Delivery simulator{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">Panel operatora</h3>
+    <h3 class="card-title">Operator panel</h3>
     <div class="card-actions">
       <span class="text-secondary">
-        Symuluje zachowanie firmy kurierskiej.
-        Kliknij przycisk, aby wysłać callback zmiany statusu.
+        Simulates the behavior of a courier company.
+        Click a button to send a status change callback.
       </span>
     </div>
   </div>
@@ -21,11 +21,11 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Zamówienie</th>
-            <th>Dostawca</th>
-            <th>Numer śledzenia</th>
+            <th>Order</th>
+            <th>Provider</th>
+            <th>Tracking number</th>
             <th>Status</th>
-            <th>Akcje</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -64,7 +64,7 @@
                         type="submit"
                         class="btn btn-sm btn-yellow"
                       >
-                        W transporcie
+                        In transit
                       </button>
                     </form>
                   {% endif %}
@@ -84,7 +84,7 @@
                         type="submit"
                         class="btn btn-sm btn-cyan"
                       >
-                        W doręczeniu
+                        Out for delivery
                       </button>
                     </form>
                     <form
@@ -102,7 +102,7 @@
                         type="submit"
                         class="btn btn-sm btn-green"
                       >
-                        Doręczona
+                        Delivered
                       </button>
                     </form>
                   {% endif %}
@@ -122,7 +122,7 @@
                         type="submit"
                         class="btn btn-sm btn-green"
                       >
-                        Doręczona
+                        Delivered
                       </button>
                     </form>
                     <form
@@ -140,7 +140,7 @@
                         type="submit"
                         class="btn btn-sm btn-orange"
                       >
-                        Zwrócona
+                        Returned
                       </button>
                     </form>
                   {% endif %}
@@ -160,7 +160,7 @@
                         type="submit"
                         class="btn btn-sm btn-red"
                       >
-                        Anuluj
+                        Cancel
                       </button>
                     </form>
                   {% endif %}
@@ -174,9 +174,9 @@
   {% else %}
     <div class="card-body">
       <div class="empty">
-        <p class="empty-title">Brak przesyłek</p>
+        <p class="empty-title">No shipments</p>
         <p class="empty-subtitle text-secondary">
-          Utwórz zamówienie i przesyłkę, aby zobaczyć je tutaj.
+          Create an order and a shipment to see them here.
         </p>
       </div>
     </div>

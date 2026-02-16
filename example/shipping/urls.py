@@ -9,27 +9,27 @@ app_name = "shipping"
 urlpatterns = [
     path("", views.order_list, name="order_list"),
     path(
-        "zamowienie/nowe/",
+        "order/new/",
         views.order_create,
         name="order_create",
     ),
     path(
-        "zamowienie/<int:pk>/",
+        "order/<int:pk>/",
         views.order_detail,
         name="order_detail",
     ),
     path(
-        "zamowienie/<int:order_pk>/wyslij/",
+        "order/<int:order_pk>/ship/",
         views.create_shipment,
         name="create_shipment",
     ),
     path(
-        "przesylka/<int:pk>/",
+        "shipment/<int:pk>/",
         views.shipment_detail,
         name="shipment_detail",
     ),
     path(
-        "przesylka/<int:pk>/tracking/",
+        "shipment/<int:pk>/tracking/",
         views.shipment_tracking,
         name="shipment_tracking",
     ),

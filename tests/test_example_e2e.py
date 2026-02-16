@@ -88,18 +88,18 @@ class _FakeOrder:
 
     def get_sender_address(self) -> dict:
         return {
-            "name": "Nadawca",
-            "line1": "ul. Testowa 1",
-            "city": "Warszawa",
+            "name": "Sender",
+            "line1": "1 Test St",
+            "city": "Warsaw",
             "postal_code": "00-001",
             "country_code": "PL",
         }
 
     def get_receiver_address(self) -> dict:
         return {
-            "name": "Odbiorca",
-            "line1": "ul. Docelowa 5",
-            "city": "Kraków",
+            "name": "Recipient",
+            "line1": "5 Destination St",
+            "city": "Krakow",
             "postal_code": "30-001",
             "country_code": "PL",
         }
@@ -149,7 +149,7 @@ class TestFullParcelDispatchFlow:
         # This replicates what the label_pdf view does: it builds the
         # label text from the shipment_id extracted from the URL and
         # passes it to _build_label_pdf.
-        label_text = f"Etykieta przesylki {sid}"
+        label_text = f"Shipment label {sid}"
         pdf_bytes = _build_label_pdf(label_text)
 
         assert pdf_bytes.startswith(b"%PDF-1.4"), (
