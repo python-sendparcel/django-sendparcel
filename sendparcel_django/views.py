@@ -6,7 +6,12 @@ import json
 
 import anyio
 from django.http import HttpRequest, JsonResponse
-from sendparcel.exceptions import InvalidCallbackError
+from sendparcel.exceptions import (
+    CommunicationError,
+    InvalidCallbackError,
+    InvalidTransitionError,
+    SendParcelException,
+)
 from sendparcel.flow import ShipmentFlow
 
 
@@ -45,7 +50,13 @@ def callback(
             dict(getattr(request, "headers", {})),
             getattr(request, "body", b""),
         )
+    except CommunicationError as exc:
+        return JsonResponse({"detail": str(exc)}, status=502)
+    except InvalidTransitionError as exc:
+        return JsonResponse({"detail": str(exc)}, status=409)
     except InvalidCallbackError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    except SendParcelException as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
 
     return JsonResponse(
