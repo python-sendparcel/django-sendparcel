@@ -1,1 +1,3 @@
-# django-sendparcel documentation
+# django-sendparcel
+
+Placeholder for documentation.
