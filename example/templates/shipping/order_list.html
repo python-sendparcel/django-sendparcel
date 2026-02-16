@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Zamówienia — SendParcel Demo{% endblock %}
+
+{% block page_title %}Zamówienia{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Lista zamówień</h3>
+    <div class="card-actions">
+      <a href="{% url 'shipping:order_create' %}" class="btn btn-primary">
+        Nowe zamówienie
+      </a>
+    </div>
+  </div>
+  {% if orders %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Opis</th>
+            <th>Odbiorca</th>
+            <th>Rozmiar</th>
+            <th>Przesyłki</th>
+            <th>Utworzono</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>{{ order.pk }}</td>
+              <td>{{ order.description }}</td>
+              <td>{{ order.recipient_name }}</td>
+              <td>
+                <span class="badge bg-blue-lt">
+                  {{ order.get_package_size_display }}
+                </span>
+              </td>
+              <td>
+                {% for shipment in order.shipments.all %}
+                  <a
+                    href="{% url 'shipping:shipment_detail' pk=shipment.pk %}"
+                    class="badge bg-{{ shipment.status|default:'secondary' }}-lt"
+                  >
+                    {{ shipment.get_status_display }}
+                  </a>
+                {% empty %}
+                  <span class="text-secondary">Brak</span>
+                {% endfor %}
+              </td>
+              <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+              <td>
+                <a
+                  href="{% url 'shipping:order_detail' pk=order.pk %}"
+                  class="btn btn-sm"
+                >
+                  Szczegóły
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body">
+      <div class="empty">
+        <p class="empty-title">Brak zamówień</p>
+        <p class="empty-subtitle text-secondary">
+          Utwórz pierwsze zamówienie, aby rozpocząć.
+        </p>
+        <div class="empty-action">
+          <a
+            href="{% url 'shipping:order_create' %}"
+            class="btn btn-primary"
+          >
+            Nowe zamówienie
+          </a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

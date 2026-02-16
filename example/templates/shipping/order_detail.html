@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Zamówienie #{{ order.pk }} — SendParcel Demo{% endblock %}
+
+{% block page_title %}Zamówienie #{{ order.pk }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Szczegóły zamówienia</h3>
+      </div>
+      <div class="card-body">
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title">Opis</div>
+            <div class="datagrid-content">{{ order.description }}</div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Rozmiar paczki</div>
+            <div class="datagrid-content">
+              <span class="badge bg-blue-lt">
+                {{ order.get_package_size_display }}
+              </span>
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Waga</div>
+            <div class="datagrid-content">{{ order.get_total_weight }} kg</div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Nadawca</div>
+            <div class="datagrid-content">
+              {{ order.sender_name }}<br />
+              {{ order.sender_line1 }}<br />
+              {{ order.sender_postal_code }} {{ order.sender_city }}
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Odbiorca</div>
+            <div class="datagrid-content">
+              {{ order.recipient_name }}<br />
+              {{ order.recipient_line1 }}<br />
+              {{ order.recipient_postal_code }} {{ order.recipient_city }}<br />
+              {{ order.recipient_email }} | {{ order.recipient_phone }}
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Utworzono</div>
+            <div class="datagrid-content">
+              {{ order.created_at|date:"d.m.Y H:i" }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Utwórz przesyłkę</h3>
+      </div>
+      <div class="card-body">
+        <form
+          method="post"
+          action="{% url 'shipping:create_shipment' order_pk=order.pk %}"
+        >
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label" for="id_provider">Dostawca</label>
+            {{ shipment_form.provider }}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            Utwórz przesyłkę
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% if order.shipments.all %}
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3 class="card-title">Przesyłki</h3>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for shipment in order.shipments.all %}
+            <a
+              href="{% url 'shipping:shipment_detail' pk=shipment.pk %}"
+              class="list-group-item list-group-item-action"
+            >
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>Przesyłka #{{ shipment.pk }}</strong>
+                  <br />
+                  <small class="text-secondary">
+                    {{ shipment.provider }} |
+                    {{ shipment.tracking_number|default:"—" }}
+                  </small>
+                </div>
+                <span class="badge">{{ shipment.get_status_display }}</span>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

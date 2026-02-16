@@ -1,0 +1,52 @@
+<div class="card-body">
+  <div class="mb-3">
+    <span class="status-dot
+      {% if shipment.status == 'delivered' %}status-dot-green
+      {% elif shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' %}status-dot-yellow
+      {% elif shipment.status == 'failed' or shipment.status == 'cancelled' %}status-dot-red
+      {% else %}status-dot-blue
+      {% endif %}
+      status-dot-animated
+    "></span>
+    <strong>{{ shipment.get_status_display }}</strong>
+  </div>
+
+  <div class="steps steps-vertical">
+    <span class="step-item {% if shipment.status == 'new' or shipment.status == 'created' or shipment.status == 'label_ready' or shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' or shipment.status == 'delivered' %}active{% endif %}">
+      Nowa
+    </span>
+    <span class="step-item {% if shipment.status == 'created' or shipment.status == 'label_ready' or shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' or shipment.status == 'delivered' %}active{% endif %}">
+      Utworzona
+    </span>
+    <span class="step-item {% if shipment.status == 'label_ready' or shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' or shipment.status == 'delivered' %}active{% endif %}">
+      Etykieta gotowa
+    </span>
+    <span class="step-item {% if shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' or shipment.status == 'delivered' %}active{% endif %}">
+      W transporcie
+    </span>
+    <span class="step-item {% if shipment.status == 'out_for_delivery' or shipment.status == 'delivered' %}active{% endif %}">
+      W doręczeniu
+    </span>
+    <span class="step-item {% if shipment.status == 'delivered' %}active{% endif %}">
+      Doręczona
+    </span>
+  </div>
+
+  {% if shipment.status == 'cancelled' %}
+    <div class="alert alert-danger mt-3 mb-0">
+      Przesyłka została anulowana.
+    </div>
+  {% elif shipment.status == 'failed' %}
+    <div class="alert alert-danger mt-3 mb-0">
+      Wystąpił błąd przetwarzania przesyłki.
+    </div>
+  {% elif shipment.status == 'returned' %}
+    <div class="alert alert-warning mt-3 mb-0">
+      Przesyłka została zwrócona do nadawcy.
+    </div>
+  {% elif shipment.status == 'delivered' %}
+    <div class="alert alert-success mt-3 mb-0">
+      Przesyłka została doręczona.
+    </div>
+  {% endif %}
+</div>
