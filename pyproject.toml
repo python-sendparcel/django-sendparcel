@@ -31,6 +31,7 @@ packages = ["sendparcel_django"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+DJANGO_SETTINGS_MODULE = "tests.settings"
 
 [tool.ruff]
 target-version = "py312"

@@ -5,16 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from django.conf import settings
 from sendparcel.registry import registry as core_registry
 from sendparcel_django.registry import registry as django_registry
-
-if not settings.configured:
-    settings.configure(
-        DEFAULT_CHARSET="utf-8",
-        USE_I18N=False,
-        SECRET_KEY="test-key",
-    )
 
 
 @pytest.fixture(autouse=True)
