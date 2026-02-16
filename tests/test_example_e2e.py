@@ -206,3 +206,59 @@ class TestFullParcelDispatchFlow:
         shipment = await flow.create_shipment(order, PROVIDER_SLUG)
 
         assert shipment.order_id == "42"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestDummyProviderWithSeparateLabelCreation:
+    """E2E: verify create_shipment + create_label path (DummyProvider)."""
+
+    async def test_dummy_provider_needs_separate_create_label(self) -> None:
+        """DummyProvider.create_shipment does not return label inline.
+
+        The view must call create_label() separately to get label_url.
+        """
+        from sendparcel.flow import ShipmentFlow
+        from sendparcel.providers.dummy import DummyProvider
+
+        core_registry.register(DummyProvider)
+
+        dummy_config: dict[str, dict] = {
+            "dummy": {
+                "label_base_url": "https://dummy.local/labels",
+            },
+        }
+        repo = DjangoShipmentRepository()
+        flow = ShipmentFlow(repository=repo, config=dummy_config)
+        order = _FakeOrder(pk=100)
+
+        shipment = await flow.create_shipment(order, "dummy")
+
+        # DummyProvider does NOT return label in create_shipment
+        assert shipment.status == "created"
+        assert shipment.label_url == ""
+
+        # Separate create_label call
+        shipment = await flow.create_label(shipment)
+
+        assert shipment.status == "label_ready"
+        assert shipment.label_url, "label_url must be set after create_label"
+        assert "dummy.local/labels" in shipment.label_url
+
+        # Verify persisted
+        retrieved = await repo.get_by_id(str(shipment.pk))
+        assert retrieved.label_url == shipment.label_url
+        assert retrieved.status == "label_ready"
+
+    async def test_inline_label_skips_separate_create_label(self) -> None:
+        """DeliverySimProvider returns label inline — no extra call needed."""
+        core_registry.register(DeliverySimProvider)
+
+        repo = DjangoShipmentRepository()
+        flow = _make_flow(repo)
+        order = _FakeOrder(pk=101)
+
+        shipment = await flow.create_shipment(order, PROVIDER_SLUG)
+
+        # DeliverySimProvider returns label inline
+        assert shipment.status == "label_ready"
+        assert shipment.label_url, "label_url set inline by provider"
