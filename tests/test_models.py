@@ -3,6 +3,7 @@
 import pytest
 from django.db import models as django_models
 from sendparcel_django.models import (
+    CallbackRetry,
     OrderModelMixin,
     Shipment,
     ShipmentModelMixin,
@@ -107,3 +108,28 @@ class TestMigrations:
 
         # Raises SystemExit(1) if migrations are out of sync
         call_command("makemigrations", "--check", "sendparcel_django")
+
+
+class TestCallbackRetryModel:
+    @pytest.mark.django_db
+    def test_create_callback_retry_with_defaults(self) -> None:
+        record = CallbackRetry.objects.create(shipment_id="ship-1")
+
+        assert record.status == "pending"
+        assert record.attempts == 0
+        assert record.payload == {}
+        assert record.headers == {}
+        assert record.next_retry_at is None
+        assert record.last_error is None
+        assert record.created_at is not None
+
+    @pytest.mark.django_db
+    def test_callback_retry_str_representation(self) -> None:
+        record = CallbackRetry.objects.create(shipment_id="ship-1")
+        str_repr = str(record)
+        assert "ship-1" in str_repr
+
+    def test_callback_retry_uuid_primary_key(self) -> None:
+        pk_field = CallbackRetry._meta.get_field("id")
+        assert isinstance(pk_field, django_models.UUIDField)
+        assert pk_field.primary_key is True
