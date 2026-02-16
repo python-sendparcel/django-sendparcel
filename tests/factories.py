@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import factory
 from sendparcel.enums import ShipmentStatus
-
-from sendparcel_django.models import Shipment
+from sendparcel_django.models import CallbackRetry, Shipment
 
 
 class ShipmentFactory(factory.django.DjangoModelFactory):
@@ -20,3 +19,16 @@ class ShipmentFactory(factory.django.DjangoModelFactory):
     tracking_number = ""
     label_url = ""
     order_id = factory.Sequence(lambda n: f"order-{n}")
+
+
+class CallbackRetryFactory(factory.django.DjangoModelFactory):
+    """Factory for CallbackRetry model instances."""
+
+    class Meta:
+        model = CallbackRetry
+
+    shipment_id = factory.Sequence(lambda n: f"ship-{n}")
+    payload = factory.LazyFunction(dict)
+    headers = factory.LazyFunction(dict)
+    status = "pending"
+    attempts = 0

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
+from typing import ClassVar
 
 import swapper
 from django.db import models
@@ -55,3 +57,27 @@ class Shipment(ShipmentModelMixin):
 
     def __str__(self) -> str:
         return f"Shipment {self.pk} ({self.provider}: {self.status})"
+
+
+class CallbackRetry(models.Model):
+    """Persists failed callback attempts for retry processing."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    shipment_id = models.CharField(max_length=128, db_index=True)
+    payload = models.JSONField(default=dict)
+    headers = models.JSONField(default=dict)
+    attempts = models.IntegerField(default=0)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=32,
+        default="pending",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"CallbackRetry({self.shipment_id}, {self.status})"
