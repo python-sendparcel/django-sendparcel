@@ -74,7 +74,7 @@ STATICFILES_DIRS = (
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- sendparcel settings ---
-SENDPARCEL_SHIPMENT_MODEL = "shipping.Shipment"
+SENDPARCEL_DJANGO_SHIPMENT_MODEL = "shipping.Shipment"
 
 SENDPARCEL_PROVIDER_SETTINGS = {
     "delivery-sim": {

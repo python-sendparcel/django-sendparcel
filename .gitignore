@@ -26,5 +26,8 @@ dist/
 .vscode/
 .idea/
 
+# Database
+*.sqlite3
+
 # OS
 .DS_Store
