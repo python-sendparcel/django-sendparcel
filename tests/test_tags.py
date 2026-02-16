@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from django.template import Context, Template
 from sendparcel.enums import ShipmentStatus
 from sendparcel.provider import BaseProvider
-
 from sendparcel_django.registry import registry
 
 

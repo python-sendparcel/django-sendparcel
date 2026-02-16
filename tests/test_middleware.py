@@ -11,7 +11,6 @@ from sendparcel.exceptions import (
     InvalidTransitionError,
     SendParcelException,
 )
-
 from sendparcel_django.middleware import SendParcelExceptionMiddleware
 
 

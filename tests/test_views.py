@@ -1,6 +1,7 @@
 """View tests."""
 
 import json
+from typing import ClassVar
 
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
@@ -224,7 +225,7 @@ class TestCallbackEdgeCases:
 
         class BadJsonRequest:
             body = b"not-json{{"
-            headers = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
 
         response = callback(
             BadJsonRequest(), "s-1", repository=repo, config={"dummy": {}}
@@ -239,7 +240,7 @@ class TestCallbackEdgeCases:
 
         class BadUtf8Request:
             body = b"\x80\x81\x82"
-            headers = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
 
         response = callback(
             BadUtf8Request(), "s-1", repository=repo, config={"dummy": {}}
@@ -252,7 +253,7 @@ class TestCallbackEdgeCases:
 
         class EmptyRequest:
             body = b""
-            headers = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
 
         response = callback(
             EmptyRequest(),
