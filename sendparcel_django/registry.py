@@ -4,10 +4,10 @@ from sendparcel.registry import PluginRegistry
 
 
 class DjangoPluginRegistry(PluginRegistry):
-    """Plugin registry with Django helper methods."""
+    """Plugin registry with Django integration.
 
-    def get_callback_paths(self) -> list[str]:
-        return [f"callback/{slug}/" for slug, _ in self.get_choices()]
+    URL routing for callbacks is handled by ``sendparcel_django.urls``.
+    """
 
 
 registry = DjangoPluginRegistry()
