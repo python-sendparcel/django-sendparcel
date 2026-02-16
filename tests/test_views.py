@@ -215,3 +215,74 @@ def test_callback_returns_500_when_no_repository() -> None:
 
     assert response.status_code == 500
     assert b"Repository is required" in response.content
+
+
+class TestCallbackEdgeCases:
+    def test_callback_with_invalid_json(self) -> None:
+        core_registry.register(DummyProvider)
+        repo = Repo()
+
+        class BadJsonRequest:
+            body = b"not-json{{"
+            headers = {"x-dummy-token": "ok"}
+
+        response = callback(
+            BadJsonRequest(), "s-1", repository=repo, config={"dummy": {}}
+        )
+        assert response.status_code == 400
+        data = json.loads(response.content)
+        assert "Invalid JSON" in data["detail"]
+
+    def test_callback_with_invalid_utf8(self) -> None:
+        core_registry.register(DummyProvider)
+        repo = Repo()
+
+        class BadUtf8Request:
+            body = b"\x80\x81\x82"
+            headers = {"x-dummy-token": "ok"}
+
+        response = callback(
+            BadUtf8Request(), "s-1", repository=repo, config={"dummy": {}}
+        )
+        assert response.status_code == 400
+
+    def test_callback_with_empty_body(self) -> None:
+        core_registry.register(DummyProvider)
+        repo = Repo()
+
+        class EmptyRequest:
+            body = b""
+            headers = {"x-dummy-token": "ok"}
+
+        response = callback(
+            EmptyRequest(),
+            "s-1",
+            repository=repo,
+            config={"dummy": {"callback_token": "ok"}},
+        )
+        assert response.status_code == 200
+
+    def test_success_response_contains_shipment_id(self) -> None:
+        core_registry.register(DummyProvider)
+        repo = Repo()
+        response = callback(
+            RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+            "s-1",
+            repository=repo,
+            config={"dummy": {"callback_token": "ok"}},
+        )
+        data = json.loads(response.content)
+        assert "shipment_id" in data
+        assert data["received"] is True
+
+    def test_success_response_contains_status(self) -> None:
+        core_registry.register(DummyProvider)
+        repo = Repo()
+        response = callback(
+            RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+            "s-1",
+            repository=repo,
+            config={"dummy": {"callback_token": "ok"}},
+        )
+        data = json.loads(response.content)
+        assert "status" in data
