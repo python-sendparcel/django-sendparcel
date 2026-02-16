@@ -47,7 +47,7 @@ class ShipmentModelMixin(models.Model):
 class Shipment(ShipmentModelMixin):
     """Default concrete shipment model.
 
-    Swappable via SENDPARCEL_SHIPMENT_MODEL.
+    Swappable via SENDPARCEL_DJANGO_SHIPMENT_MODEL.
     """
 
     order_id = models.CharField(max_length=255, db_index=True)

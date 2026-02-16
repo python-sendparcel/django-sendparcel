@@ -29,10 +29,10 @@ INSTALLED_APPS = [
 
 ### 2. Configure the Shipment Model
 
-Point `SENDPARCEL_SHIPMENT_MODEL` to your concrete Shipment model:
+Point `SENDPARCEL_DJANGO_SHIPMENT_MODEL` to your concrete Shipment model:
 
 ```python
-SENDPARCEL_SHIPMENT_MODEL = "myapp.Shipment"
+SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
 ### 3. Create Your Models
@@ -62,8 +62,8 @@ class Order(OrderModelMixin):
     def get_sender_address(self):
         return {
             "name": "My Warehouse",
-            "line1": "ul. Magazynowa 1",
-            "city": "Warszawa",
+            "line1": "1 Warehouse St",
+            "city": "Warsaw",
             "postal_code": "00-001",
             "country_code": "PL",
         }

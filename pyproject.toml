@@ -5,29 +5,44 @@ description = "Django adapter for python-sendparcel"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
-authors = [{ name = "Dominik Kozaczko" }]
+authors = [{ name = "Dominik Kozaczko", email = "dominik@kozaczko.info" }]
 dependencies = [
-    "Django>=5.2",
-    "python-sendparcel>=0.1.0",
-    "anyio>=4.0",
-    "swapper>=1.4",
+  "Django>=5.2",
+  "python-sendparcel>=0.1.0",
+  "anyio>=4.0",
+  "swapper>=1.4",
 ]
+keywords = ["django", "shipping", "parcel", "delivery", "sendparcel"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/sendparcel/django-sendparcel"
+Documentation = "https://django-sendparcel.readthedocs.io/"
+Repository = "https://github.com/sendparcel/django-sendparcel"
+Changelog = "https://github.com/sendparcel/django-sendparcel/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/sendparcel/django-sendparcel/issues"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-django>=4.9.0",
-    "pytest-factoryboy>=2.7.0",
-    "factory-boy>=3.3.0",
-    "ruff>=0.9.0",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+  "pytest-django>=4.9.0",
+  "pytest-factoryboy>=2.7.0",
+  "factory-boy>=3.3.0",
+  "ruff>=0.9.0",
 ]
-docs = [
-    "furo",
-    "myst-parser",
-    "sphinx>=7.0",
-    "sphinx-autodoc-typehints",
-]
+docs = ["furo", "myst-parser", "sphinx>=7.0", "sphinx-autodoc-typehints"]
 
 [build-system]
 requires = ["hatchling"]
