@@ -45,7 +45,6 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "A", "SIM", "RUF"]
 ignore = ["N818", "B027"]
 
 [tool.ruff.lint.per-file-ignores]
-"examples/app.py" = ["E501"]
 "sendparcel_django/migrations/*" = ["RUF012"]
 "example/*" = ["RUF012"]
 
