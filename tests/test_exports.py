@@ -26,6 +26,7 @@ def test_all_exports_listed_in_dunder_all():
         "DjangoOrderAdapter",
         "DjangoPluginRegistry",
         "DjangoShipmentAdapter",
+        "DjangoShipmentRepository",
         "OrderModelMixin",
         "ProviderChoiceForm",
         "Shipment",
@@ -33,3 +34,9 @@ def test_all_exports_listed_in_dunder_all():
         "registry",
     }
     assert set(sendparcel_django.__all__) == expected
+
+
+def test_django_shipment_repository_is_importable():
+    from sendparcel_django import DjangoShipmentRepository
+
+    assert DjangoShipmentRepository is not None
