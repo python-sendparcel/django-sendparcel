@@ -22,4 +22,4 @@ USE_TZ = True
 
 ROOT_URLCONF = "tests.urls"
 
-SENDPARCEL_SHIPMENT_MODEL = "sendparcel_django.Shipment"
+SENDPARCEL_DJANGO_SHIPMENT_MODEL = "sendparcel_django.Shipment"

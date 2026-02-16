@@ -1,9 +1,10 @@
-"""Abstract model mixins aligned with sendparcel core protocols."""
+"""Abstract model mixins and concrete models for sendparcel."""
 
 from __future__ import annotations
 
 from decimal import Decimal
 
+import swapper
 from django.db import models
 
 
@@ -34,6 +35,23 @@ class ShipmentModelMixin(models.Model):
     external_id = models.CharField(max_length=128, blank=True, default="")
     tracking_number = models.CharField(max_length=128, blank=True, default="")
     label_url = models.URLField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
+
+
+class Shipment(ShipmentModelMixin):
+    """Default concrete shipment model.
+
+    Swappable via SENDPARCEL_SHIPMENT_MODEL.
+    """
+
+    order_id = models.CharField(max_length=255, db_index=True)
+
+    class Meta(ShipmentModelMixin.Meta):
+        swappable = swapper.swappable_setting("sendparcel_django", "Shipment")
+
+    def __str__(self) -> str:
+        return f"Shipment {self.pk} ({self.provider}: {self.status})"
