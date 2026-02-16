@@ -22,6 +22,7 @@ build/
 dist/
 *.egg-info/
 docs/_build/
+docs/_static/
 
 # IDE
 .vscode/

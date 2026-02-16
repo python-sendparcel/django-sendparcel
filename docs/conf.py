@@ -1,5 +1,26 @@
 """Sphinx configuration for django-sendparcel."""
 
+import django
+from django.conf import settings
+
+if not settings.configured:
+    settings.configure(
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "django.contrib.admin",
+            "sendparcel_django",
+        ],
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            },
+        },
+        DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
+    )
+    django.setup()
+
 project = "django-sendparcel"
 copyright = "2026, Dominik Kozaczko"
 author = "Dominik Kozaczko"
