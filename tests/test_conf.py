@@ -1,7 +1,6 @@
 """Settings integration tests."""
 
 from django.test import override_settings
-
 from sendparcel_django.conf import get_settings
 
 
@@ -27,7 +26,7 @@ def test_settings_override_from_django_settings():
 
 
 def test_get_settings_returns_fresh_values_each_call():
-    """get_settings() reads current Django settings (not cached stale values)."""
+    """get_settings() reads current Django settings (not cached)."""
     conf1 = get_settings()
     assert conf1.DEFAULT_PROVIDER == ""
 

@@ -44,6 +44,7 @@ ignore = ["N818", "B027"]
 
 [tool.ruff.lint.per-file-ignores]
 "examples/app.py" = ["E501"]
+"sendparcel_django/migrations/*" = ["RUF012"]
 
 [tool.uv.sources]
 python-sendparcel = { path = "../python-sendparcel", editable = true }

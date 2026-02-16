@@ -20,7 +20,7 @@ class DummyShipment:
     status = ShipmentStatus.LABEL_READY
     provider = "dummy"
     external_id = ""
-    tracking_number = ""
+    tracking_number = "TRK-TEST"
     label_url = ""
 
 

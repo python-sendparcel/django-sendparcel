@@ -2,7 +2,6 @@
 
 import pytest
 from sendparcel.enums import ShipmentStatus
-
 from sendparcel_django.models import Shipment
 from sendparcel_django.repository import DjangoShipmentRepository
 

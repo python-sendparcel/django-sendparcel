@@ -3,7 +3,6 @@
 import pytest
 from sendparcel.provider import BaseProvider
 from sendparcel.registry import PluginRegistry
-
 from sendparcel_django.registry import DjangoPluginRegistry
 
 
