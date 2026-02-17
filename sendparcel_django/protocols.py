@@ -3,31 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any
-
-
-@dataclass
-class DjangoOrderAdapter:
-    """Adapter exposing core order protocol from a Django model instance."""
-
-    wrapped: Any
-
-    @property
-    def id(self) -> int:
-        return self.wrapped.id
-
-    def get_total_weight(self) -> Decimal:
-        return Decimal(str(self.wrapped.get_total_weight()))
-
-    def get_parcels(self) -> list[dict]:
-        return list(self.wrapped.get_parcels())
-
-    def get_sender_address(self) -> dict:
-        return dict(self.wrapped.get_sender_address())
-
-    def get_receiver_address(self) -> dict:
-        return dict(self.wrapped.get_receiver_address())
 
 
 @dataclass

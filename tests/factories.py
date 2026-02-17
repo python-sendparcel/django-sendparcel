@@ -18,7 +18,7 @@ class ShipmentFactory(factory.django.DjangoModelFactory):
     external_id = ""
     tracking_number = ""
     label_url = ""
-    order_id = factory.Sequence(lambda n: f"order-{n}")
+    reference_id = factory.Sequence(lambda n: f"ref-{n}")
 
 
 class CallbackRetryFactory(factory.django.DjangoModelFactory):

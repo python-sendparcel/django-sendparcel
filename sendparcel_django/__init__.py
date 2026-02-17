@@ -9,23 +9,17 @@ default_app_config = "sendparcel_django.apps.SendparcelConfig"
 if TYPE_CHECKING:
     from sendparcel_django.forms import ProviderChoiceForm
     from sendparcel_django.models import (
-        OrderModelMixin,
         Shipment,
         ShipmentModelMixin,
     )
-    from sendparcel_django.protocols import (
-        DjangoOrderAdapter,
-        DjangoShipmentAdapter,
-    )
+    from sendparcel_django.protocols import DjangoShipmentAdapter
     from sendparcel_django.registry import DjangoPluginRegistry, registry
     from sendparcel_django.repository import DjangoShipmentRepository
 
 __all__ = [
-    "DjangoOrderAdapter",
     "DjangoPluginRegistry",
     "DjangoShipmentAdapter",
     "DjangoShipmentRepository",
-    "OrderModelMixin",
     "ProviderChoiceForm",
     "Shipment",
     "ShipmentModelMixin",
@@ -34,13 +28,8 @@ __all__ = [
 
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ProviderChoiceForm": ("sendparcel_django.forms", "ProviderChoiceForm"),
-    "OrderModelMixin": ("sendparcel_django.models", "OrderModelMixin"),
     "Shipment": ("sendparcel_django.models", "Shipment"),
     "ShipmentModelMixin": ("sendparcel_django.models", "ShipmentModelMixin"),
-    "DjangoOrderAdapter": (
-        "sendparcel_django.protocols",
-        "DjangoOrderAdapter",
-    ),
     "DjangoShipmentAdapter": (
         "sendparcel_django.protocols",
         "DjangoShipmentAdapter",

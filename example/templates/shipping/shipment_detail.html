@@ -14,11 +14,9 @@
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Order</div>
+            <div class="datagrid-title">Reference ID</div>
             <div class="datagrid-content">
-              <a href="{% url 'shipping:order_detail' pk=shipment.order.pk %}">
-                #{{ shipment.order.pk }} — {{ shipment.order.description }}
-              </a>
+              {{ shipment.reference_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
@@ -41,6 +39,71 @@
             <div class="datagrid-title">Created</div>
             <div class="datagrid-content">
               {{ shipment.created_at|date:"d.m.Y H:i" }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sender address -->
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3 class="card-title">Sender</h3>
+      </div>
+      <div class="card-body">
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title">Name</div>
+            <div class="datagrid-content">{{ shipment.sender_name }}</div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Address</div>
+            <div class="datagrid-content">
+              {{ shipment.sender_street }}, {{ shipment.sender_city }}
+              {{ shipment.sender_postal_code }} {{ shipment.sender_country_code }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Receiver address -->
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3 class="card-title">Receiver</h3>
+      </div>
+      <div class="card-body">
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title">Name</div>
+            <div class="datagrid-content">{{ shipment.receiver_name }}</div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Address</div>
+            <div class="datagrid-content">
+              {{ shipment.receiver_street }}, {{ shipment.receiver_city }}
+              {{ shipment.receiver_postal_code }} {{ shipment.receiver_country_code }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parcel info -->
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3 class="card-title">Parcel</h3>
+      </div>
+      <div class="card-body">
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title">Weight</div>
+            <div class="datagrid-content">{{ shipment.weight }} kg</div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Dimensions</div>
+            <div class="datagrid-content">
+              {{ shipment.width }} x {{ shipment.height }} x {{ shipment.length }} cm
             </div>
           </div>
         </div>

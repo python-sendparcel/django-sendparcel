@@ -14,20 +14,20 @@ class TestDjangoShipmentRepository:
     @pytest.mark.asyncio
     async def test_create_shipment(self):
         shipment = await self.repo.create(
-            order_id="order-1",
+            reference_id="ref-1",
             provider="dummy",
             status=ShipmentStatus.NEW,
         )
 
         assert shipment.pk is not None
-        assert shipment.order_id == "order-1"
+        assert shipment.reference_id == "ref-1"
         assert shipment.provider == "dummy"
         assert shipment.status == ShipmentStatus.NEW
 
     @pytest.mark.asyncio
     async def test_get_by_id(self):
         created = await self.repo.create(
-            order_id="order-2",
+            reference_id="ref-2",
             provider="dummy",
             status=ShipmentStatus.NEW,
         )
@@ -35,7 +35,7 @@ class TestDjangoShipmentRepository:
         fetched = await self.repo.get_by_id(str(created.pk))
 
         assert fetched.pk == created.pk
-        assert fetched.order_id == "order-2"
+        assert fetched.reference_id == "ref-2"
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found_raises(self):
@@ -45,7 +45,7 @@ class TestDjangoShipmentRepository:
     @pytest.mark.asyncio
     async def test_save_persists_changes(self):
         shipment = await self.repo.create(
-            order_id="order-3",
+            reference_id="ref-3",
             provider="dummy",
             status=ShipmentStatus.NEW,
         )
@@ -59,7 +59,7 @@ class TestDjangoShipmentRepository:
     @pytest.mark.asyncio
     async def test_update_status(self):
         shipment = await self.repo.create(
-            order_id="order-4",
+            reference_id="ref-4",
             provider="dummy",
             status=ShipmentStatus.NEW,
         )
@@ -77,18 +77,3 @@ class TestDjangoShipmentRepository:
         fetched = await self.repo.get_by_id(str(shipment.pk))
         assert fetched.status == ShipmentStatus.CREATED
         assert fetched.external_id == "ext-99"
-
-    @pytest.mark.asyncio
-    async def test_create_with_order_object(self):
-        """If 'order' kwarg is given, extract id from it."""
-
-        class FakeOrder:
-            id = "order-from-obj"
-
-        shipment = await self.repo.create(
-            order=FakeOrder(),
-            provider="dummy",
-            status=ShipmentStatus.NEW,
-        )
-
-        assert shipment.order_id == "order-from-obj"

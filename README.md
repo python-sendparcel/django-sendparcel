@@ -13,8 +13,7 @@ Django adapter for the [python-sendparcel](https://github.com/python-sendparcel/
 
 - **Shipment model with FSM** — built-in `Shipment` model with finite-state-machine transitions (new → created → label_ready → in_transit → delivered, etc.)
 - **Swappable Shipment model** — replace the default `Shipment` with your own via `swapper`, similar to Django's `AUTH_USER_MODEL`
-- **Order model mixin** — `OrderModelMixin` defines the contract your Order model must satisfy (weight, parcels, addresses)
-- **Protocol adapters** — `DjangoOrderAdapter` and `DjangoShipmentAdapter` bridge Django models to the framework-agnostic core
+- **Protocol adapter** — `DjangoShipmentAdapter` bridges the Django Shipment model to the framework-agnostic core
 - **Django ORM repository** — `DjangoShipmentRepository` provides async-compatible persistence via `sync_to_async`
 - **Provider plugin registry** — auto-discovers shipping provider plugins at app startup
 - **Callback endpoint** — receives provider status webhooks and routes them through `ShipmentFlow`
@@ -64,49 +63,7 @@ SENDPARCEL_DEFAULT_PROVIDER = "my-provider"
 SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
-### 3. Create your Order model
-
-Your Order model must extend `OrderModelMixin` and implement four methods:
-
-```python
-from decimal import Decimal
-from django.db import models
-from sendparcel_django.models import OrderModelMixin
-
-
-class Order(OrderModelMixin):
-    description = models.CharField(max_length=255)
-    recipient_name = models.CharField(max_length=128)
-    recipient_line1 = models.CharField(max_length=255)
-    recipient_city = models.CharField(max_length=128)
-    recipient_postal_code = models.CharField(max_length=16)
-
-    def get_total_weight(self) -> Decimal:
-        return Decimal("2.5")
-
-    def get_parcels(self) -> list[dict]:
-        return [{"weight_kg": self.get_total_weight()}]
-
-    def get_sender_address(self) -> dict:
-        return {
-            "name": "My Warehouse",
-            "line1": "1 Warehouse St",
-            "city": "Warsaw",
-            "postal_code": "00-001",
-            "country_code": "PL",
-        }
-
-    def get_receiver_address(self) -> dict:
-        return {
-            "name": self.recipient_name,
-            "line1": self.recipient_line1,
-            "city": self.recipient_city,
-            "postal_code": self.recipient_postal_code,
-            "country_code": "PL",
-        }
-```
-
-### 4. (Optional) Create a custom Shipment model
+### 3. (Optional) Create a custom Shipment model
 
 If you need additional fields on the Shipment, extend `ShipmentModelMixin` and point the setting to your model:
 
@@ -116,11 +73,8 @@ from sendparcel_django.models import ShipmentModelMixin
 
 
 class Shipment(ShipmentModelMixin):
-    order = models.ForeignKey(
-        "myapp.Order",
-        on_delete=models.CASCADE,
-        related_name="shipments",
-    )
+    # Add custom fields as needed
+    notes = models.TextField(blank=True, default="")
 
     class Meta:
         verbose_name = "shipment"
@@ -132,7 +86,7 @@ Then in settings:
 SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
-### 5. Include URL configuration
+### 4. Include URL configuration
 
 ```python
 from django.urls import include, path
@@ -145,7 +99,7 @@ urlpatterns = [
 
 This exposes the callback endpoint at `sendparcel/callback/<shipment_id>/` for receiving provider webhooks.
 
-### 6. (Optional) Add the exception middleware
+### 5. (Optional) Add the exception middleware
 
 ```python
 MIDDLEWARE = [
@@ -163,7 +117,7 @@ This catches sendparcel exceptions and returns appropriate JSON error responses:
 | `InvalidTransitionError` | 409       |
 | `SendParcelException` | 400         |
 
-### 7. Run migrations
+### 6. Run migrations
 
 ```bash
 python manage.py migrate
@@ -173,24 +127,40 @@ python manage.py migrate
 
 ### Creating a shipment
 
-Use `DjangoOrderAdapter` to bridge your Django Order model to the core `ShipmentFlow`:
+Use `ShipmentFlow` to create shipments with explicit address and parcel data:
 
 ```python
 import anyio
 from sendparcel.flow import ShipmentFlow
-from sendparcel_django.protocols import DjangoOrderAdapter
 from sendparcel_django.repository import DjangoShipmentRepository
 
 
-async def create_shipment_for_order(order, provider_slug):
+async def create_shipment(provider_slug):
     repository = DjangoShipmentRepository()
     flow = ShipmentFlow(
         repository=repository,
         config=settings.SENDPARCEL_PROVIDER_SETTINGS,
     )
 
-    adapted_order = DjangoOrderAdapter(wrapped=order)
-    shipment = await flow.create_shipment(adapted_order, provider_slug)
+    shipment = await flow.create_shipment(
+        provider_slug,
+        sender_address={
+            "name": "My Warehouse",
+            "line1": "1 Warehouse St",
+            "city": "Warsaw",
+            "postal_code": "00-001",
+            "country_code": "PL",
+        },
+        receiver_address={
+            "name": "Customer Name",
+            "line1": "10 Customer Ave",
+            "city": "Krakow",
+            "postal_code": "30-001",
+            "country_code": "PL",
+        },
+        parcels=[{"weight_kg": 2.5}],
+        reference_id="my-order-123",  # optional reference for your system
+    )
 
     # Generate a label if the provider supports it
     if not shipment.label_url:
@@ -202,7 +172,7 @@ async def create_shipment_for_order(order, provider_slug):
 Call from synchronous Django code using `anyio.run()`:
 
 ```python
-shipment = anyio.run(create_shipment_for_order, order, "my-provider")
+shipment = anyio.run(create_shipment, "my-provider")
 ```
 
 ### Provider choice form
@@ -223,9 +193,9 @@ The form choices are dynamically populated from the plugin registry.
 
 The `ShipmentAdmin` is auto-registered for the active Shipment model (default or swapped). It provides:
 
-- **List display**: ID, order ID, status, provider, tracking number, label URL, creation date
+- **List display**: ID, reference ID, status, provider, tracking number, label URL, creation date
 - **Filters**: status, provider
-- **Search**: tracking number, external ID, order ID
+- **Search**: tracking number, external ID, reference ID
 - **Bulk actions**: mark as in transit, mark as delivered, cancel — each action triggers FSM transitions with guard validation
 
 ## Configuration Reference
@@ -246,6 +216,7 @@ The `ShipmentModelMixin` provides these fields on every Shipment (default or cus
 
 | Field             | Type         | Description                          |
 |-------------------|--------------|--------------------------------------|
+| `reference_id`    | `CharField`  | Your system's reference (e.g. order ID) |
 | `provider`        | `CharField`  | Provider slug                        |
 | `status`          | `CharField`  | Current FSM state (default: `"new"`) |
 | `external_id`     | `CharField`  | Provider-assigned shipment ID        |
@@ -254,14 +225,13 @@ The `ShipmentModelMixin` provides these fields on every Shipment (default or cus
 | `created_at`      | `DateTimeField` | Auto-set on creation              |
 | `updated_at`      | `DateTimeField` | Auto-set on save                  |
 
-The default concrete `Shipment` model adds an `order_id` CharField. When creating a custom model, you can use a ForeignKey or any other relation to link shipments to orders.
+The default concrete `Shipment` model uses these fields directly. When creating a custom model, you can add any additional fields you need.
 
 ## Example Project
 
 A full working example is included in the `example/` directory. It demonstrates:
 
-- An `Order` model with `OrderModelMixin`
-- A custom `Shipment` model with a ForeignKey to Order
+- A custom `Shipment` model with inline address fields
 - Shipment creation through the `ShipmentFlow`
 - A delivery simulation provider for local testing
 - HTMX-powered shipment tracking UI

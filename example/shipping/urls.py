@@ -7,21 +7,11 @@ from shipping import views
 app_name = "shipping"
 
 urlpatterns = [
-    path("", views.order_list, name="order_list"),
+    path("", views.shipment_list, name="shipment_list"),
     path(
-        "order/new/",
-        views.order_create,
-        name="order_create",
-    ),
-    path(
-        "order/<int:pk>/",
-        views.order_detail,
-        name="order_detail",
-    ),
-    path(
-        "order/<int:order_pk>/ship/",
-        views.create_shipment,
-        name="create_shipment",
+        "shipment/new/",
+        views.shipment_create,
+        name="shipment_create",
     ),
     path(
         "shipment/<int:pk>/",

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Django adapter for python-sendparcel
 - Swappable `Shipment` model (like Django's `AUTH_USER_MODEL`)
-- `DjangoOrderAdapter` for bridging Django models to sendparcel protocols
+- `DjangoShipmentAdapter` for bridging Django models to sendparcel protocols
 - `DjangoShipmentRepository` with full ORM persistence
 - Django views for shipment creation, callback handling, and label serving
 - Django app configuration with `SENDPARCEL` settings dict

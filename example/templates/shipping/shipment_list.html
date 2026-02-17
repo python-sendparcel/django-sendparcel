@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Shipments — SendParcel Demo{% endblock %}
+
+{% block page_title %}Shipments{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">All shipments</h3>
+    <div class="card-actions">
+      <a href="{% url 'shipping:shipment_create' %}" class="btn btn-primary">
+        New shipment
+      </a>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Reference</th>
+          <th>Provider</th>
+          <th>Status</th>
+          <th>Receiver</th>
+          <th>Tracking number</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for shipment in shipments %}
+          <tr>
+            <td>{{ shipment.pk }}</td>
+            <td>{{ shipment.reference_id|default:"—" }}</td>
+            <td>{{ shipment.provider }}</td>
+            <td>
+              <span class="badge
+                {% if shipment.status == 'delivered' %}bg-green
+                {% elif shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' %}bg-yellow
+                {% elif shipment.status == 'failed' or shipment.status == 'cancelled' %}bg-red
+                {% else %}bg-blue
+                {% endif %}
+              ">{{ shipment.get_status_display }}</span>
+            </td>
+            <td>{{ shipment.receiver_name }} / {{ shipment.receiver_city }}</td>
+            <td>{{ shipment.tracking_number|default:"—" }}</td>
+            <td>{{ shipment.created_at|date:"d.m.Y H:i" }}</td>
+            <td>
+              <a href="{% url 'shipping:shipment_detail' pk=shipment.pk %}">
+                Detail
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-muted text-center">
+              No shipments yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

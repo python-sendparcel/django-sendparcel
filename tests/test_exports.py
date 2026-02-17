@@ -1,12 +1,6 @@
 """Public API export tests."""
 
 
-def test_order_model_mixin_is_importable():
-    from sendparcel_django import OrderModelMixin
-
-    assert OrderModelMixin._meta.abstract is True
-
-
 def test_shipment_model_mixin_is_importable():
     from sendparcel_django import ShipmentModelMixin
 
@@ -23,11 +17,9 @@ def test_all_exports_listed_in_dunder_all():
     import sendparcel_django
 
     expected = {
-        "DjangoOrderAdapter",
         "DjangoPluginRegistry",
         "DjangoShipmentAdapter",
         "DjangoShipmentRepository",
-        "OrderModelMixin",
         "ProviderChoiceForm",
         "Shipment",
         "ShipmentModelMixin",

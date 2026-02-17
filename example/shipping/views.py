@@ -7,12 +7,12 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 from sendparcel.flow import ShipmentFlow
 from sendparcel_django.registry import registry
 
-from shipping.forms import CreateShipmentForm, OrderForm
-from shipping.models import Order, Shipment
+from shipping.forms import CreateShipmentForm
+from shipping.models import Shipment
 
 
 def _get_repository():
@@ -36,96 +36,94 @@ def _get_provider_config() -> dict:
 
 
 @require_GET
-def order_list(request: HttpRequest) -> HttpResponse:
-    """List orders with shipment information."""
-    orders = Order.objects.prefetch_related("shipments").all()
+def shipment_list(request: HttpRequest) -> HttpResponse:
+    """List all shipments."""
+    shipments = Shipment.objects.all()
     return TemplateResponse(
         request,
-        "shipping/order_list.html",
-        {"orders": orders},
+        "shipping/shipment_list.html",
+        {"shipments": shipments},
     )
 
 
-@require_GET
-def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """Order details with shipment creation form."""
-    order = get_object_or_404(
-        Order.objects.prefetch_related("shipments"), pk=pk
-    )
+def shipment_create(request: HttpRequest) -> HttpResponse:
+    """Create a new shipment with address, parcel, and provider details."""
     provider_choices = registry.get_choices()
-    shipment_form = CreateShipmentForm(provider_choices=provider_choices)
-    return TemplateResponse(
-        request,
-        "shipping/order_detail.html",
-        {
-            "order": order,
-            "shipment_form": shipment_form,
-        },
-    )
 
-
-def order_create(request: HttpRequest) -> HttpResponse:
-    """Create a new order."""
     if request.method == "POST":
-        form = OrderForm(request.POST)
+        form = CreateShipmentForm(
+            request.POST, provider_choices=provider_choices
+        )
         if form.is_valid():
-            order = form.save()
-            messages.success(
-                request,
-                f"Order #{order.pk} has been created.",
+            provider_slug = form.cleaned_data["provider"]
+            shipment_data = {
+                k: v for k, v in form.cleaned_data.items() if k != "provider"
+            }
+
+            repository = _get_repository()
+            flow = ShipmentFlow(
+                repository=repository,
+                config=_get_provider_config(),
             )
-            return redirect("shipping:order_detail", pk=order.pk)
+
+            try:
+                shipment = anyio.run(
+                    _async_create_shipment,
+                    flow,
+                    provider_slug,
+                    shipment_data,
+                )
+                messages.success(
+                    request,
+                    f"Shipment #{shipment.pk} has been created. "
+                    f"Tracking number: {shipment.tracking_number}",
+                )
+                return redirect("shipping:shipment_detail", pk=shipment.pk)
+            except Exception as exc:
+                messages.error(
+                    request,
+                    f"Shipment creation error: {exc}",
+                )
     else:
-        form = OrderForm()
+        form = CreateShipmentForm(provider_choices=provider_choices)
 
     return TemplateResponse(
         request,
-        "shipping/order_create.html",
+        "shipping/shipment_create.html",
         {"form": form},
     )
 
 
-@require_POST
-def create_shipment(request: HttpRequest, order_pk: int) -> HttpResponse:
-    """Create a shipment for an order via ShipmentFlow."""
-    order = get_object_or_404(Order, pk=order_pk)
-    provider_choices = registry.get_choices()
-    form = CreateShipmentForm(request.POST, provider_choices=provider_choices)
-
-    if not form.is_valid():
-        messages.error(request, "Please select a valid provider.")
-        return redirect("shipping:order_detail", pk=order.pk)
-
-    provider_slug = form.cleaned_data["provider"]
-    repository = _get_repository()
-    flow = ShipmentFlow(
-        repository=repository,
-        config=_get_provider_config(),
-    )
-
-    try:
-        shipment = anyio.run(_async_create_shipment, flow, order, provider_slug)
-        messages.success(
-            request,
-            f"Shipment #{shipment.pk} has been created. "
-            f"Tracking number: {shipment.tracking_number}",
-        )
-        return redirect("shipping:shipment_detail", pk=shipment.pk)
-    except Exception as exc:
-        messages.error(
-            request,
-            f"Shipment creation error: {exc}",
-        )
-        return redirect("shipping:order_detail", pk=order.pk)
-
-
-async def _async_create_shipment(flow, order, provider_slug):
+async def _async_create_shipment(flow, provider_slug, shipment_data):
     """Async helper to create shipment via the core flow."""
-    from sendparcel_django.protocols import DjangoOrderAdapter
-
-    adapted_order = DjangoOrderAdapter(wrapped=order)
-    shipment = await flow.create_shipment_from_order(
-        adapted_order, provider_slug
+    sender_address = {
+        "name": shipment_data["sender_name"],
+        "line1": shipment_data["sender_street"],
+        "city": shipment_data["sender_city"],
+        "postal_code": shipment_data["sender_postal_code"],
+        "country_code": shipment_data["sender_country_code"],
+    }
+    receiver_address = {
+        "name": shipment_data["receiver_name"],
+        "line1": shipment_data["receiver_street"],
+        "city": shipment_data["receiver_city"],
+        "postal_code": shipment_data["receiver_postal_code"],
+        "country_code": shipment_data["receiver_country_code"],
+    }
+    parcels = [
+        {
+            "weight_kg": shipment_data["weight"],
+            "width_cm": shipment_data["width"],
+            "height_cm": shipment_data["height"],
+            "length_cm": shipment_data["length"],
+        }
+    ]
+    shipment = await flow.create_shipment(
+        provider_slug,
+        sender_address=sender_address,
+        receiver_address=receiver_address,
+        parcels=parcels,
+        reference_id=shipment_data.get("reference_id", ""),
     )
     if not shipment.label_url:
         shipment = await flow.create_label(shipment)
@@ -135,9 +133,7 @@ async def _async_create_shipment(flow, order, provider_slug):
 @require_GET
 def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Shipment details with tracking information."""
-    shipment = get_object_or_404(
-        Shipment.objects.select_related("order"), pk=pk
-    )
+    shipment = get_object_or_404(Shipment, pk=pk)
     return TemplateResponse(
         request,
         "shipping/shipment_detail.html",
@@ -147,7 +143,7 @@ def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_GET
 def shipment_tracking(request: HttpRequest, pk: int) -> HttpResponse:
-    """HTMX partial — refreshed shipment status."""
+    """HTMX partial -- refreshed shipment status."""
     shipment = get_object_or_404(Shipment, pk=pk)
     return TemplateResponse(
         request,

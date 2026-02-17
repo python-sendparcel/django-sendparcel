@@ -12,7 +12,9 @@ class TestFSMWithDjangoModel:
     """Verify FSM transitions work through Django model instances."""
 
     def test_happy_path_new_to_delivered(self):
-        shipment = Shipment.objects.create(provider="dummy", order_id="order-1")
+        shipment = Shipment.objects.create(
+            provider="dummy", reference_id="order-1"
+        )
         create_shipment_machine(shipment)
 
         assert shipment.status == ShipmentStatus.NEW
@@ -35,7 +37,9 @@ class TestFSMWithDjangoModel:
         assert shipment.status == ShipmentStatus.DELIVERED
 
     def test_cancel_from_new(self):
-        shipment = Shipment.objects.create(provider="dummy", order_id="order-2")
+        shipment = Shipment.objects.create(
+            provider="dummy", reference_id="order-2"
+        )
         create_shipment_machine(shipment)
 
         shipment.cancel()
@@ -44,7 +48,7 @@ class TestFSMWithDjangoModel:
     def test_cancel_from_created(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-3",
+            reference_id="order-3",
             status=ShipmentStatus.CREATED,
         )
         create_shipment_machine(shipment)
@@ -55,7 +59,7 @@ class TestFSMWithDjangoModel:
     def test_cancel_from_label_ready(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-4",
+            reference_id="order-4",
             status=ShipmentStatus.LABEL_READY,
         )
         create_shipment_machine(shipment)
@@ -64,7 +68,9 @@ class TestFSMWithDjangoModel:
         assert shipment.status == ShipmentStatus.CANCELLED
 
     def test_fail_from_new(self):
-        shipment = Shipment.objects.create(provider="dummy", order_id="order-5")
+        shipment = Shipment.objects.create(
+            provider="dummy", reference_id="order-5"
+        )
         create_shipment_machine(shipment)
 
         shipment.fail()
@@ -73,7 +79,7 @@ class TestFSMWithDjangoModel:
     def test_fail_from_in_transit(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-6",
+            reference_id="order-6",
             status=ShipmentStatus.IN_TRANSIT,
             tracking_number="TRK-TEST",
         )
@@ -83,7 +89,9 @@ class TestFSMWithDjangoModel:
         assert shipment.status == ShipmentStatus.FAILED
 
     def test_cannot_deliver_from_new(self):
-        shipment = Shipment.objects.create(provider="dummy", order_id="order-7")
+        shipment = Shipment.objects.create(
+            provider="dummy", reference_id="order-7"
+        )
         create_shipment_machine(shipment)
 
         with pytest.raises(MachineError):
@@ -92,7 +100,7 @@ class TestFSMWithDjangoModel:
     def test_cannot_cancel_from_delivered(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-8",
+            reference_id="order-8",
             status=ShipmentStatus.DELIVERED,
         )
         create_shipment_machine(shipment)
@@ -103,7 +111,7 @@ class TestFSMWithDjangoModel:
     def test_mark_in_transit_from_created(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-9",
+            reference_id="order-9",
             status=ShipmentStatus.CREATED,
         )
         create_shipment_machine(shipment)
@@ -115,7 +123,7 @@ class TestFSMWithDjangoModel:
     def test_mark_returned_from_delivered(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-10",
+            reference_id="order-10",
             status=ShipmentStatus.DELIVERED,
         )
         create_shipment_machine(shipment)
@@ -125,7 +133,7 @@ class TestFSMWithDjangoModel:
 
     def test_may_trigger_returns_false_for_invalid(self):
         shipment = Shipment.objects.create(
-            provider="dummy", order_id="order-11"
+            provider="dummy", reference_id="order-11"
         )
         create_shipment_machine(shipment)
 
@@ -133,7 +141,7 @@ class TestFSMWithDjangoModel:
 
     def test_may_trigger_returns_true_for_valid(self):
         shipment = Shipment.objects.create(
-            provider="dummy", order_id="order-12"
+            provider="dummy", reference_id="order-12"
         )
         create_shipment_machine(shipment)
 
@@ -142,7 +150,7 @@ class TestFSMWithDjangoModel:
     def test_mark_in_transit_without_tracking_number_raises(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-13",
+            reference_id="order-13",
             status=ShipmentStatus.LABEL_READY,
         )
         create_shipment_machine(shipment)
@@ -153,7 +161,7 @@ class TestFSMWithDjangoModel:
     def test_confirm_label_without_label_url_raises(self):
         shipment = Shipment.objects.create(
             provider="dummy",
-            order_id="order-14",
+            reference_id="order-14",
             status=ShipmentStatus.CREATED,
         )
         create_shipment_machine(shipment)

@@ -70,7 +70,7 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     list_display = (
         "id",
-        "order_id",
+        "reference_id",
         "status",
         "provider",
         "tracking_number",
@@ -78,7 +78,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "provider")
-    search_fields = ("tracking_number", "external_id", "order_id")
+    search_fields = ("tracking_number", "external_id", "reference_id")
     readonly_fields = (
         "external_id",
         "tracking_number",

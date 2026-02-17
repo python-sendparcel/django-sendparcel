@@ -59,7 +59,7 @@ def test_shipment_admin_list_display():
     model_admin = admin.site._registry[model]
     expected_fields = (
         "id",
-        "order_id",
+        "reference_id",
         "status",
         "provider",
         "tracking_number",
@@ -81,7 +81,7 @@ def test_shipment_admin_search_fields():
     model_admin = admin.site._registry[model]
     assert "tracking_number" in model_admin.search_fields
     assert "external_id" in model_admin.search_fields
-    assert "order_id" in model_admin.search_fields
+    assert "reference_id" in model_admin.search_fields
 
 
 def test_shipment_admin_readonly_fields():
@@ -124,7 +124,7 @@ def test_admin_action_mark_in_transit(
     shipment_model, model_admin, admin_request
 ):
     shipment = shipment_model.objects.create(
-        order_id="o-1",
+        reference_id="o-1",
         provider="dummy",
         status=ShipmentStatus.LABEL_READY,
         tracking_number="TRK-001",
@@ -142,7 +142,7 @@ def test_admin_action_mark_delivered(
     shipment_model, model_admin, admin_request
 ):
     shipment = shipment_model.objects.create(
-        order_id="o-2",
+        reference_id="o-2",
         provider="dummy",
         status=ShipmentStatus.IN_TRANSIT,
         tracking_number="TRK-002",
@@ -158,7 +158,7 @@ def test_admin_action_mark_delivered(
 @pytest.mark.django_db
 def test_admin_action_cancel(shipment_model, model_admin, admin_request):
     shipment = shipment_model.objects.create(
-        order_id="o-3",
+        reference_id="o-3",
         provider="dummy",
         status=ShipmentStatus.CREATED,
     )
@@ -176,7 +176,7 @@ def test_admin_action_skips_invalid_transition(
 ):
     """Action on a shipment in wrong state should not change it."""
     shipment = shipment_model.objects.create(
-        order_id="o-4",
+        reference_id="o-4",
         provider="dummy",
         status=ShipmentStatus.DELIVERED,
     )

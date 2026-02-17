@@ -22,69 +22,36 @@ uv add django-sendparcel
 INSTALLED_APPS = [
     # ...
     "sendparcel_django",
-    # your apps that define Order/Shipment models
+    # your apps that define custom Shipment models (if any)
     "myapp",
 ]
 ```
 
-### 2. Configure the Shipment Model
+### 2. Configure the Shipment Model (optional)
 
-Point `SENDPARCEL_DJANGO_SHIPMENT_MODEL` to your concrete Shipment model:
+If you need a custom Shipment model, point `SENDPARCEL_DJANGO_SHIPMENT_MODEL` to it:
 
 ```python
 SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
-### 3. Create Your Models
+### 3. (Optional) Create a Custom Shipment Model
 
-Your app needs an Order model and a Shipment model that inherit from the library's abstract mixins:
+If you need additional fields, extend `ShipmentModelMixin`:
 
 ```python
 from django.db import models
-from sendparcel_django.models import OrderModelMixin, ShipmentModelMixin
-
-
-class Order(OrderModelMixin):
-    description = models.CharField(max_length=255)
-    recipient_name = models.CharField(max_length=128)
-    recipient_email = models.EmailField()
-    recipient_phone = models.CharField(max_length=32)
-    recipient_line1 = models.CharField(max_length=255)
-    recipient_city = models.CharField(max_length=128)
-    recipient_postal_code = models.CharField(max_length=16)
-
-    def get_total_weight(self):
-        return Decimal("1.0")
-
-    def get_parcels(self):
-        return [{"weight_kg": self.get_total_weight()}]
-
-    def get_sender_address(self):
-        return {
-            "name": "My Warehouse",
-            "line1": "1 Warehouse St",
-            "city": "Warsaw",
-            "postal_code": "00-001",
-            "country_code": "PL",
-        }
-
-    def get_receiver_address(self):
-        return {
-            "name": self.recipient_name,
-            "line1": self.recipient_line1,
-            "city": self.recipient_city,
-            "postal_code": self.recipient_postal_code,
-            "country_code": "PL",
-            "email": self.recipient_email,
-            "phone": self.recipient_phone,
-        }
+from sendparcel_django.models import ShipmentModelMixin
 
 
 class Shipment(ShipmentModelMixin):
-    order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, related_name="shipments"
-    )
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "shipment"
 ```
+
+The built-in `ShipmentModelMixin` already provides `reference_id`, `provider`, `status`, `external_id`, `tracking_number`, `label_url`, `created_at`, and `updated_at` fields.
 
 ### 4. Configure Provider Settings
 
@@ -111,28 +78,43 @@ urlpatterns = [
 ### 6. Run Migrations
 
 ```bash
-python manage.py makemigrations myapp
+python manage.py makemigrations myapp  # only if using a custom Shipment model
 python manage.py migrate
 ```
 
 ## Creating a Shipment
 
-Use `ShipmentFlow` to create shipments through the core sendparcel pipeline:
+Use `ShipmentFlow` to create shipments with explicit address and parcel data:
 
 ```python
 import anyio
 from sendparcel.flow import ShipmentFlow
-from sendparcel_django.protocols import DjangoOrderAdapter
 from sendparcel_django.repository import DjangoShipmentRepository
 
 repository = DjangoShipmentRepository()
 flow = ShipmentFlow(repository=repository, config=settings.SENDPARCEL_PROVIDER_SETTINGS)
 
-order = Order.objects.get(pk=1)
-adapted_order = DjangoOrderAdapter(wrapped=order)
-
 # In a sync Django view, use anyio.run():
-shipment = anyio.run(flow.create_shipment, adapted_order, "dummy")
+shipment = anyio.run(
+    flow.create_shipment,
+    "dummy",
+    sender_address={
+        "name": "My Warehouse",
+        "line1": "1 Warehouse St",
+        "city": "Warsaw",
+        "postal_code": "00-001",
+        "country_code": "PL",
+    },
+    receiver_address={
+        "name": "Customer Name",
+        "line1": "10 Customer Ave",
+        "city": "Krakow",
+        "postal_code": "30-001",
+        "country_code": "PL",
+    },
+    parcels=[{"weight_kg": 2.5}],
+    reference_id="my-order-123",
+)
 ```
 
 ## Handling Callbacks
@@ -143,7 +125,7 @@ The library provides a callback endpoint at `/sendparcel/callback/<shipment_id>/
 
 See the `example/` directory in the repository for a complete working Django project with:
 
-- Concrete Order and Shipment models
+- A Shipment model with inline address fields
 - Tabler UI templates with HTMX
 - A delivery simulator that sends callbacks
 - Django admin integration

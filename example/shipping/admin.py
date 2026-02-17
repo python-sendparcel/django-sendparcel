@@ -3,47 +3,34 @@
 from django.contrib import admin
 from django.contrib.admin.sites import AlreadyRegistered
 
-from shipping.models import Order, Shipment
-
-
-@admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
-    list_display = [
-        "pk",
-        "description",
-        "package_size",
-        "recipient_name",
-        "recipient_city",
-        "created_at",
-    ]
-    list_filter = ["package_size", "created_at"]
-    search_fields = [
-        "description",
-        "recipient_name",
-        "recipient_email",
-    ]
+from shipping.models import Shipment
 
 
 class ShipmentAdmin(admin.ModelAdmin):
     list_display = [
         "pk",
-        "order",
+        "reference_id",
         "provider",
         "status",
         "tracking_number",
+        "receiver_name",
+        "receiver_city",
         "created_at",
     ]
     list_filter = ["status", "provider"]
-    search_fields = ["tracking_number", "external_id"]
-    raw_id_fields = ["order"]
+    search_fields = [
+        "tracking_number",
+        "external_id",
+        "reference_id",
+        "receiver_name",
+    ]
 
 
 try:
     admin.site.register(Shipment, ShipmentAdmin)
 except AlreadyRegistered:
     # The library's sendparcel_django.admin auto-registers the swapped
-    # Shipment model.  If it was registered first, unregister and
-    # re-register with our project-specific admin that knows about the
-    # ``order`` ForeignKey.
+    # Shipment model. If it was registered first, unregister and
+    # re-register with our project-specific admin.
     admin.site.unregister(Shipment)
     admin.site.register(Shipment, ShipmentAdmin)

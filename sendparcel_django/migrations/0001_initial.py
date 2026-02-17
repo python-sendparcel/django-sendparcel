@@ -34,7 +34,19 @@ class Migration(migrations.Migration):
                 ("label_url", models.URLField(blank=True, default="")),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
-                ("order_id", models.CharField(db_index=True, max_length=255)),
+                (
+                    "reference_id",
+                    models.CharField(
+                        blank=True,
+                        default="",
+                        help_text=(
+                            "External reference identifier"
+                            " (e.g. order ID, return ID)"
+                        ),
+                        max_length=255,
+                        verbose_name="Reference ID",
+                    ),
+                ),
             ],
             options={
                 "abstract": False,

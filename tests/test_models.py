@@ -4,31 +4,9 @@ import pytest
 from django.db import models as django_models
 from sendparcel_django.models import (
     CallbackRetry,
-    OrderModelMixin,
     Shipment,
     ShipmentModelMixin,
 )
-
-
-class TestOrderModelMixin:
-    def test_is_abstract(self):
-        assert OrderModelMixin._meta.abstract is True
-
-    def test_get_total_weight_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            OrderModelMixin.get_total_weight(None)
-
-    def test_get_parcels_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            OrderModelMixin.get_parcels(None)
-
-    def test_get_sender_address_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            OrderModelMixin.get_sender_address(None)
-
-    def test_get_receiver_address_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            OrderModelMixin.get_receiver_address(None)
 
 
 class TestShipmentModelMixin:
@@ -75,11 +53,11 @@ class TestShipmentConcreteModel:
     def test_is_not_abstract(self):
         assert Shipment._meta.abstract is False
 
-    def test_has_order_id_field(self):
-        field = Shipment._meta.get_field("order_id")
+    def test_has_reference_id_field(self):
+        field = Shipment._meta.get_field("reference_id")
         assert isinstance(field, django_models.CharField)
         assert field.max_length == 255
-        assert field.db_index is True
+        assert field.blank is True
 
     def test_inherits_mixin_fields(self):
         field_names = [f.name for f in Shipment._meta.get_fields()]

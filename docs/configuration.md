@@ -4,13 +4,13 @@ All settings are defined in your Django `settings.py`.
 
 ## SENDPARCEL_DJANGO_SHIPMENT_MODEL
 
-**Required.** The dotted path to your concrete Shipment model (similar to Django's `AUTH_USER_MODEL`).
+**Optional.** The dotted path to your concrete Shipment model (similar to Django's `AUTH_USER_MODEL`). Defaults to `"sendparcel_django.Shipment"`.
 
 ```python
 SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
-Your model must inherit from `sendparcel_django.models.ShipmentModelMixin` and include a ForeignKey to your Order model.
+Your model must inherit from `sendparcel_django.models.ShipmentModelMixin`.
 
 ## SENDPARCEL_PROVIDER_SETTINGS
 
@@ -43,28 +43,20 @@ SENDPARCEL_DEFAULT_PROVIDER = "dummy"
 
 ## Swappable Models
 
-### OrderModelMixin
-
-Abstract Django model that your Order model must inherit from. It defines the contract:
-
-| Method | Return type | Description |
-|--------|-------------|-------------|
-| `get_total_weight()` | `Decimal` | Total weight of all parcels |
-| `get_parcels()` | `list[dict]` | List of parcel info dicts |
-| `get_sender_address()` | `dict` | Sender address fields |
-| `get_receiver_address()` | `dict` | Receiver address fields |
-
 ### ShipmentModelMixin
 
 Abstract Django model providing shipment fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `reference_id` | `CharField(255)` | Your system's reference (e.g. order ID) |
 | `provider` | `CharField(64)` | Provider slug |
 | `status` | `CharField(32)` | Current FSM status |
 | `external_id` | `CharField(128)` | Provider's shipment ID |
 | `tracking_number` | `CharField(128)` | Tracking number |
 | `label_url` | `URLField` | Label download URL |
+| `created_at` | `DateTimeField` | Auto-set on creation |
+| `updated_at` | `DateTimeField` | Auto-set on save |
 
 ## Provider Registration
 

@@ -18,16 +18,8 @@ class DjangoShipmentRepository:
         return await sync_to_async(model.objects.get)(pk=shipment_id)
 
     async def create(self, **kwargs):
-        """Create a new shipment record.
-
-        Accepts an optional ``order`` keyword argument. If provided
-        and ``order_id`` is not already in *kwargs*, ``order_id`` is
-        derived from ``order.id``.
-        """
+        """Create a new shipment record."""
         model = self._get_model()
-        order = kwargs.pop("order", None)
-        if order is not None and "order_id" not in kwargs:
-            kwargs["order_id"] = str(getattr(order, "id", order))
         return await sync_to_async(model.objects.create)(**kwargs)
 
     async def save(self, shipment):

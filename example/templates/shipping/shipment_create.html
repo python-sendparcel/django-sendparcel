@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}New shipment — SendParcel Demo{% endblock %}
+
+{% block page_title %}New shipment{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'shipping:shipment_create' %}">
+  {% csrf_token %}
+
+  <div class="row g-3">
+    <!-- Provider & reference -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Shipment info</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="id_provider">Provider</label>
+              {{ form.provider }}
+              {% if form.provider.errors %}
+                <div class="invalid-feedback d-block">{{ form.provider.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="id_reference_id">Reference ID</label>
+              {{ form.reference_id }}
+              {% if form.reference_id.errors %}
+                <div class="invalid-feedback d-block">{{ form.reference_id.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sender address -->
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Sender address</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="id_sender_name">Name</label>
+              {{ form.sender_name }}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="id_sender_street">Street</label>
+              {{ form.sender_street }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="id_sender_city">City</label>
+              {{ form.sender_city }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_sender_postal_code">Postal code</label>
+              {{ form.sender_postal_code }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_sender_country_code">Country</label>
+              {{ form.sender_country_code }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Receiver address -->
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Receiver address</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="id_receiver_name">Name</label>
+              {{ form.receiver_name }}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="id_receiver_street">Street</label>
+              {{ form.receiver_street }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="id_receiver_city">City</label>
+              {{ form.receiver_city }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_receiver_postal_code">Postal code</label>
+              {{ form.receiver_postal_code }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_receiver_country_code">Country</label>
+              {{ form.receiver_country_code }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parcel dimensions -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Parcel dimensions</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label" for="id_weight">Weight (kg)</label>
+              {{ form.weight }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_width">Width (cm)</label>
+              {{ form.width }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_height">Height (cm)</label>
+              {{ form.height }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="id_length">Length (cm)</label>
+              {{ form.length }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="col-12">
+      <button type="submit" class="btn btn-primary">Create shipment</button>
+      <a href="{% url 'shipping:shipment_list' %}" class="btn btn-secondary ms-2">Cancel</a>
+    </div>
+  </div>
+</form>
+{% endblock %}
