@@ -25,7 +25,6 @@ class OrderObj:
 
 class ShipmentObj:
     id = "ship-1"
-    order = OrderObj()
     status = "created"
     provider = "dummy"
     external_id = "ext-1"

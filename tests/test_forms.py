@@ -9,7 +9,9 @@ class FakeProvider(BaseProvider):
     slug = "dummy"
     display_name = "Dummy"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
 

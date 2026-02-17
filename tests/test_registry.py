@@ -10,7 +10,9 @@ class FakeProvider(BaseProvider):
     slug = "fake"
     display_name = "Fake"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
 
@@ -18,7 +20,9 @@ class AnotherProvider(BaseProvider):
     slug = "another"
     display_name = "Another"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
 

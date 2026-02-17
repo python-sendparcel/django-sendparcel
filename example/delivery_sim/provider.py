@@ -6,7 +6,9 @@ from sendparcel.exceptions import InvalidCallbackError
 from sendparcel.fsm import STATUS_TO_CALLBACK
 from sendparcel.provider import BaseProvider
 from sendparcel.types import (
+    AddressInfo,
     LabelInfo,
+    ParcelInfo,
     ShipmentCreateResult,
     ShipmentStatusResponse,
 )
@@ -21,7 +23,14 @@ class DeliverySimProvider(BaseProvider):
     supported_services: ClassVar[list[str]] = ["standard"]
     user_selectable: ClassVar[bool] = False
 
-    async def create_shipment(self, **kwargs) -> ShipmentCreateResult:
+    async def create_shipment(
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs,
+    ) -> ShipmentCreateResult:
         shipment_id = str(self.shipment.id)
         return ShipmentCreateResult(
             external_id=f"SIM-{shipment_id}",

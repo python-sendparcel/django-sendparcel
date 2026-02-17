@@ -41,10 +41,6 @@ class DjangoShipmentAdapter:
         return str(self.wrapped.id)
 
     @property
-    def order(self) -> Any:
-        return self.wrapped.order
-
-    @property
     def status(self) -> str:
         return str(self.wrapped.status)
 

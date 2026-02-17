@@ -17,7 +17,6 @@ from sendparcel_django.views import callback
 
 class DummyShipment:
     id = "s-1"
-    order = object()
     status = ShipmentStatus.LABEL_READY
     provider = "dummy"
     external_id = ""
@@ -29,7 +28,9 @@ class DummyProvider(BaseProvider):
     slug = "dummy"
     display_name = "Dummy"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
     async def verify_callback(
@@ -102,7 +103,9 @@ class CommunicationErrorProvider(BaseProvider):
     slug = "comm_err"
     display_name = "CommErr"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
     async def verify_callback(
@@ -120,7 +123,9 @@ class TransitionErrorProvider(BaseProvider):
     slug = "trans_err"
     display_name = "TransErr"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
     async def verify_callback(
@@ -138,7 +143,9 @@ class GenericErrorProvider(BaseProvider):
     slug = "generic_err"
     display_name = "GenericErr"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {}
 
     async def verify_callback(

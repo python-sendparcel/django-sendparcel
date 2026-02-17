@@ -124,7 +124,9 @@ async def _async_create_shipment(flow, order, provider_slug):
     from sendparcel_django.protocols import DjangoOrderAdapter
 
     adapted_order = DjangoOrderAdapter(wrapped=order)
-    shipment = await flow.create_shipment(adapted_order, provider_slug)
+    shipment = await flow.create_shipment_from_order(
+        adapted_order, provider_slug
+    )
     if not shipment.label_url:
         shipment = await flow.create_label(shipment)
     return shipment

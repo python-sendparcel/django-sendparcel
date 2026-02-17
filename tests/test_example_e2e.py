@@ -10,11 +10,11 @@ from __future__ import annotations
 import importlib
 import sys
 import types
-from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from asgiref.sync import sync_to_async
 from sendparcel.registry import registry as core_registry
 from sendparcel_django.repository import DjangoShipmentRepository
 
@@ -27,6 +27,7 @@ if _example_dir not in sys.path:
     sys.path.insert(0, _example_dir)
 
 from delivery_sim.provider import DeliverySimProvider  # noqa: E402
+from shipping.models import Order  # noqa: E402
 
 PROVIDER_SLUG = "delivery-sim"
 
@@ -66,43 +67,25 @@ def _get_build_label_pdf():
 _build_label_pdf = _get_build_label_pdf()
 
 
-class _FakeOrder:
-    """Minimal object satisfying the ``sendparcel.protocols.Order`` protocol."""
+async def _create_order(**overrides) -> Order:
+    """Create a real Order in the database for E2E tests.
 
-    def __init__(self, pk: int) -> None:
-        self.id = pk
-        self.pk = pk
-
-    def get_total_weight(self) -> Decimal:
-        return Decimal("2.5")
-
-    def get_parcels(self) -> list[dict]:
-        return [
-            {
-                "weight_kg": Decimal("2.5"),
-                "length_cm": Decimal("30"),
-                "width_cm": Decimal("20"),
-                "height_cm": Decimal("15"),
-            },
-        ]
-
-    def get_sender_address(self) -> dict:
-        return {
-            "name": "Sender",
-            "line1": "1 Test St",
-            "city": "Warsaw",
-            "postal_code": "00-001",
-            "country_code": "PL",
-        }
-
-    def get_receiver_address(self) -> dict:
-        return {
-            "name": "Recipient",
-            "line1": "5 Destination St",
-            "city": "Krakow",
-            "postal_code": "30-001",
-            "country_code": "PL",
-        }
+    ``create_shipment_from_order()`` passes ``order_id`` through to the
+    Django repository, so the referenced Order must exist in the DB to
+    satisfy the foreign-key constraint on the example Shipment model.
+    """
+    defaults = {
+        "description": "E2E test order",
+        "package_size": "M",
+        "recipient_name": "Recipient",
+        "recipient_email": "recipient@example.com",
+        "recipient_phone": "+48123456789",
+        "recipient_line1": "5 Destination St",
+        "recipient_city": "Krakow",
+        "recipient_postal_code": "30-001",
+    }
+    defaults.update(overrides)
+    return await sync_to_async(Order.objects.create)(**defaults)
 
 
 def _make_flow(repo: DjangoShipmentRepository) -> ShipmentFlow:
@@ -117,15 +100,15 @@ class TestFullParcelDispatchFlow:
     """E2E: order → shipment → label URL → PDF verification."""
 
     async def test_create_shipment_and_verify_label(self) -> None:
-        """Create shipment for a fake order and verify label URL + PDF."""
+        """Create shipment for a real order and verify label URL + PDF."""
         core_registry.register(DeliverySimProvider)
 
         repo = DjangoShipmentRepository()
         flow = _make_flow(repo)
-        order = _FakeOrder(pk=1)
+        order = await _create_order(description="Label verification order")
 
         # --- Step 1: create shipment (provider returns label inline) ---
-        shipment = await flow.create_shipment(order, PROVIDER_SLUG)
+        shipment = await flow.create_shipment_from_order(order, PROVIDER_SLUG)
 
         # Basic shipment assertions.
         assert shipment is not None
@@ -164,9 +147,9 @@ class TestFullParcelDispatchFlow:
 
         repo = DjangoShipmentRepository()
         flow = _make_flow(repo)
-        order = _FakeOrder(pk=2)
+        order = await _create_order(description="Persistence test order")
 
-        shipment = await flow.create_shipment(order, PROVIDER_SLUG)
+        shipment = await flow.create_shipment_from_order(order, PROVIDER_SLUG)
 
         retrieved = await repo.get_by_id(str(shipment.pk))
         assert retrieved is not None
@@ -201,11 +184,11 @@ class TestFullParcelDispatchFlow:
 
         repo = DjangoShipmentRepository()
         flow = _make_flow(repo)
-        order = _FakeOrder(pk=42)
+        order = await _create_order(description="Order ID test order")
 
-        shipment = await flow.create_shipment(order, PROVIDER_SLUG)
+        shipment = await flow.create_shipment_from_order(order, PROVIDER_SLUG)
 
-        assert shipment.order_id == "42"
+        assert shipment.order_id == str(order.pk)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -229,9 +212,9 @@ class TestDummyProviderWithSeparateLabelCreation:
         }
         repo = DjangoShipmentRepository()
         flow = ShipmentFlow(repository=repo, config=dummy_config)
-        order = _FakeOrder(pk=100)
+        order = await _create_order(description="Dummy provider test order")
 
-        shipment = await flow.create_shipment(order, "dummy")
+        shipment = await flow.create_shipment_from_order(order, "dummy")
 
         # DummyProvider does NOT return label in create_shipment
         assert shipment.status == "created"
@@ -255,9 +238,9 @@ class TestDummyProviderWithSeparateLabelCreation:
 
         repo = DjangoShipmentRepository()
         flow = _make_flow(repo)
-        order = _FakeOrder(pk=101)
+        order = await _create_order(description="Inline label test order")
 
-        shipment = await flow.create_shipment(order, PROVIDER_SLUG)
+        shipment = await flow.create_shipment_from_order(order, PROVIDER_SLUG)
 
         # DeliverySimProvider returns label inline
         assert shipment.status == "label_ready"
