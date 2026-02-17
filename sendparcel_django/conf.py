@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from django.conf import settings
 
@@ -11,7 +12,7 @@ from django.conf import settings
 class SendparcelSettings:
     """Resolved sendparcel configuration from Django settings."""
 
-    PROVIDER_SETTINGS: dict
+    PROVIDER_SETTINGS: dict[str, Any]
     DEFAULT_PROVIDER: str
     SHIPMENT_MODEL: str
 

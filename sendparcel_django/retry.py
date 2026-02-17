@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import anyio
 from django.db.models import Q
@@ -32,8 +33,8 @@ class DjangoCallbackRetryStore:
         self,
         shipment_id: str,
         provider_slug: str,
-        payload: dict,
-        headers: dict,
+        payload: dict[str, Any],
+        headers: dict[str, Any],
     ) -> str:
         """Persist a failed callback for later retry.
 
@@ -47,7 +48,7 @@ class DjangoCallbackRetryStore:
         )
         return str(record.id)
 
-    def get_due_retries(self, limit: int = 10) -> list[dict]:
+    def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
         """Return pending retries that are due for processing.
 
         Records with null next_retry_at are considered immediately due.
@@ -107,7 +108,9 @@ class DjangoCallbackRetryStore:
         )
 
 
-async def _process_single_retry(flow, repository, retry_record: dict):
+async def _process_single_retry(
+    flow: Any, repository: Any, retry_record: dict[str, Any]
+) -> None:
     """Process a single retry record asynchronously."""
     shipment = await repository.get_by_id(retry_record["shipment_id"])
     await flow.handle_callback(
@@ -120,8 +123,8 @@ async def _process_single_retry(flow, repository, retry_record: dict):
 def process_due_retries(
     *,
     retry_store: DjangoCallbackRetryStore,
-    flow,
-    repository,
+    flow: Any,
+    repository: Any,
     max_attempts: int = 5,
     backoff_seconds: int = 60,
     limit: int = 10,

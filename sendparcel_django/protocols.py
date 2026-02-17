@@ -73,13 +73,13 @@ class CallbackRetryStore(Protocol):
         self,
         shipment_id: str,
         provider_slug: str,
-        payload: dict,
-        headers: dict,
+        payload: dict[str, Any],
+        headers: dict[str, Any],
     ) -> str:
         """Store a failed callback for later retry. Returns retry ID."""
         ...
 
-    def get_due_retries(self, limit: int = 10) -> list[dict]:
+    def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get retries that are due for processing."""
         ...
 
