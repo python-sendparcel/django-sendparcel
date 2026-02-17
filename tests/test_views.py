@@ -300,3 +300,35 @@ class TestCallbackEdgeCases:
         )
         data = json.loads(response.content)
         assert "status" in data
+
+    def test_callback_get_request_returns_405(self) -> None:
+        """GET requests to callback endpoint return 405 Method Not Allowed."""
+        core_registry.register(DummyProvider)
+        repo = Repo()
+
+        class GetRequest:
+            body = b"{}"
+            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            method = "GET"
+            path = "/callback/1/"
+
+        response = callback(
+            GetRequest(), 1, repository=repo, config={"dummy": {}}
+        )
+        assert response.status_code == 405
+
+    def test_callback_csrf_exempt(self) -> None:
+        """Callback view should not require CSRF token (external webhooks)."""
+        core_registry.register(DummyProvider)
+        repo = Repo()
+
+        # POST request without CSRF token in headers
+        response = callback(
+            RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+            1,
+            repository=repo,
+            config={"dummy": {"callback_token": "ok"}},
+        )
+
+        # Should succeed (status 200), not 403 Forbidden
+        assert response.status_code == 200
