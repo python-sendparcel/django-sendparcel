@@ -2,12 +2,12 @@
 
 All settings are defined in your Django `settings.py`.
 
-## SENDPARCEL_DJANGO_SHIPMENT_MODEL
+## SENDPARCEL_SHIPMENT_MODEL
 
 **Optional.** The dotted path to your concrete Shipment model (similar to Django's `AUTH_USER_MODEL`). Defaults to `"sendparcel_django.Shipment"`.
 
 ```python
-SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
+SENDPARCEL_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
 Your model must inherit from `sendparcel_django.models.ShipmentModelMixin`.
@@ -92,12 +92,13 @@ myprovider = "mypackage.provider:MyProvider"
 
 Maps sendparcel exceptions to HTTP responses in views:
 
-| Exception | HTTP Status |
-|-----------|-------------|
-| `InvalidCallbackError` | 400 Bad Request |
-| `InvalidTransitionError` | 409 Conflict |
-| `CommunicationError` | 502 Bad Gateway |
-| `SendParcelException` | 400 Bad Request |
+| Exception | HTTP Status | Description |
+|-----------|-------------|-------------|
+| `ShipmentNotFoundError` | 404 Not Found | Shipment ID does not exist |
+| `InvalidCallbackError` | 400 Bad Request | Invalid callback payload or token |
+| `InvalidTransitionError` | 409 Conflict | Shipment status transition not allowed |
+| `CommunicationError` | 502 Bad Gateway | Provider API communication failure |
+| `SendParcelException` | 400 Bad Request | Other library errors |
 
 Add to `MIDDLEWARE`:
 
@@ -122,3 +123,42 @@ Available tags:
 |-----|-------------|
 | `{% shipment_status_badge shipment %}` | Renders a colored status badge |
 | `{% provider_choices as providers %}` | Loads provider choices into template variable |
+
+## Protocols
+
+### CallbackRetryStore
+
+Storage abstraction for the webhook retry queue. Note that the Django implementation is synchronous due to framework constraints.
+
+```python
+from typing import Any, Protocol
+
+class CallbackRetryStore(Protocol):
+    def store_failed_callback(
+        self,
+        shipment_id: str,
+        provider_slug: str,
+        payload: dict[str, Any],
+        headers: dict[str, Any],
+    ) -> str:
+        """Store a failed callback for later retry. Returns retry ID."""
+        ...
+
+    def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get retries that are due for processing."""
+        ...
+
+    def mark_succeeded(self, retry_id: str) -> None:
+        """Mark a retry as successfully processed."""
+        ...
+
+    def mark_failed(self, retry_id: str, error: str) -> None:
+        """Mark a retry as failed and schedule next attempt."""
+        ...
+
+    def mark_exhausted(self, retry_id: str) -> None:
+        """Mark a retry as exhausted (dead letter)."""
+        ...
+```
+
+The library provides a default implementation using the Django ORM: `sendparcel_django.retry.DjangoCallbackRetryStore`.

@@ -29,10 +29,10 @@ INSTALLED_APPS = [
 
 ### 2. Configure the Shipment Model (optional)
 
-If you need a custom Shipment model, point `SENDPARCEL_DJANGO_SHIPMENT_MODEL` to it:
+If you need a custom Shipment model, point `SENDPARCEL_SHIPMENT_MODEL` to it:
 
 ```python
-SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
+SENDPARCEL_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
 ### 3. (Optional) Create a Custom Shipment Model
@@ -88,6 +88,7 @@ Use `ShipmentFlow` to create shipments with explicit address and parcel data:
 
 ```python
 import anyio
+from django.conf import settings
 from sendparcel.flow import ShipmentFlow
 from sendparcel_django.repository import DjangoShipmentRepository
 
@@ -119,7 +120,21 @@ shipment = anyio.run(
 
 ## Handling Callbacks
 
-The library provides a callback endpoint at `/sendparcel/callback/<shipment_id>/`. Providers send HTTP POST requests to this endpoint to notify status changes.
+The library provides a built-in callback view at `/sendparcel/callback/<shipment_id>/`. Providers send HTTP POST requests to this endpoint to notify status changes.
+
+The view is decorated with `@csrf_exempt` and `@require_POST` and handles repository instantiation automatically.
+
+If you need to use a custom view, you can import and use the `callback` view as a base or reference:
+
+```python
+from django.urls import path
+from sendparcel_django.views import callback
+
+# Example of manual view wiring
+urlpatterns = [
+    path("my-callback/<str:shipment_id>/", callback, name="custom-callback"),
+]
+```
 
 ## Example Project
 

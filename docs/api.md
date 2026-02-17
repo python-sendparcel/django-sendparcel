@@ -63,6 +63,15 @@
    :show-inheritance:
 ```
 
+## Retry
+
+```{eval-rst}
+.. automodule:: sendparcel_django.retry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## Middleware
 
 ```{eval-rst}
