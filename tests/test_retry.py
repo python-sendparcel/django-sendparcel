@@ -56,6 +56,7 @@ class TestDjangoCallbackRetryStore:
 
         retry_id = store.store_failed_callback(
             shipment_id="ship-1",
+            provider_slug="test-provider",
             payload={"event": "picked_up"},
             headers={"x-token": "abc"},
         )
@@ -71,12 +72,12 @@ class TestDjangoCallbackRetryStore:
     def test_get_due_retries_returns_due_items_only(self) -> None:
         store = DjangoCallbackRetryStore()
         # Due retry
-        store.store_failed_callback("ship-due", {}, {})
+        store.store_failed_callback("ship-due", "test-provider", {}, {})
         CallbackRetry.objects.filter(shipment_id="ship-due").update(
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
         # Future retry
-        store.store_failed_callback("ship-future", {}, {})
+        store.store_failed_callback("ship-future", "test-provider", {}, {})
         CallbackRetry.objects.filter(shipment_id="ship-future").update(
             next_retry_at=datetime.now(tz=UTC) + timedelta(hours=1),
         )
@@ -90,7 +91,7 @@ class TestDjangoCallbackRetryStore:
     def test_get_due_retries_respects_limit(self) -> None:
         store = DjangoCallbackRetryStore()
         for i in range(5):
-            store.store_failed_callback(f"ship-{i}", {}, {})
+            store.store_failed_callback(f"ship-{i}", "test-provider", {}, {})
         CallbackRetry.objects.update(
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
@@ -101,7 +102,9 @@ class TestDjangoCallbackRetryStore:
 
     def test_mark_succeeded_changes_status(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback("ship-1", {}, {})
+        retry_id = store.store_failed_callback(
+            "ship-1", "test-provider", {}, {}
+        )
 
         store.mark_succeeded(retry_id)
 
@@ -110,7 +113,9 @@ class TestDjangoCallbackRetryStore:
 
     def test_mark_failed_increments_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback("ship-1", {}, {})
+        retry_id = store.store_failed_callback(
+            "ship-1", "test-provider", {}, {}
+        )
 
         store.mark_failed(retry_id, error="Connection refused")
 
@@ -122,7 +127,9 @@ class TestDjangoCallbackRetryStore:
 
     def test_mark_exhausted_changes_status(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback("ship-1", {}, {})
+        retry_id = store.store_failed_callback(
+            "ship-1", "test-provider", {}, {}
+        )
 
         store.mark_exhausted(retry_id)
 
@@ -132,7 +139,7 @@ class TestDjangoCallbackRetryStore:
     def test_pending_retries_with_null_next_retry_at_are_due(self) -> None:
         """Records with no next_retry_at (just created) should be returned."""
         store = DjangoCallbackRetryStore()
-        store.store_failed_callback("ship-null", {}, {})
+        store.store_failed_callback("ship-null", "test-provider", {}, {})
 
         due = store.get_due_retries(limit=10)
 
@@ -146,6 +153,7 @@ class TestProcessDueRetries:
         store = DjangoCallbackRetryStore()
         store.store_failed_callback(
             "ship-retry",
+            "test-provider",
             {"event": "delivered"},
             {"x-token": "ok"},
         )
@@ -174,7 +182,9 @@ class TestProcessDueRetries:
 
     def test_marks_exhausted_after_max_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback("ship-exhaust", {}, {})
+        retry_id = store.store_failed_callback(
+            "ship-exhaust", "test-provider", {}, {}
+        )
         CallbackRetry.objects.filter(id=retry_id).update(
             attempts=4,
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
@@ -197,7 +207,9 @@ class TestProcessDueRetries:
 
     def test_marks_failed_on_error_within_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback("ship-fail", {}, {})
+        retry_id = store.store_failed_callback(
+            "ship-fail", "test-provider", {}, {}
+        )
         CallbackRetry.objects.filter(id=retry_id).update(
             attempts=1,
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),

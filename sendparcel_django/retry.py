@@ -28,6 +28,7 @@ class DjangoCallbackRetryStore:
     def store_failed_callback(
         self,
         shipment_id: str,
+        provider_slug: str,
         payload: dict,
         headers: dict,
     ) -> str:
@@ -37,6 +38,7 @@ class DjangoCallbackRetryStore:
         """
         record = CallbackRetry.objects.create(
             shipment_id=shipment_id,
+            provider_slug=provider_slug,
             payload=payload,
             headers=headers,
         )

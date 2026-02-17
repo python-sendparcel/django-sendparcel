@@ -49,6 +49,7 @@ class CallbackRetry(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     shipment_id = models.CharField(max_length=128, db_index=True)
+    provider_slug = models.CharField(max_length=64, default="unknown")
     payload = models.JSONField(default=dict)
     headers = models.JSONField(default=dict)
     attempts = models.IntegerField(default=0)
