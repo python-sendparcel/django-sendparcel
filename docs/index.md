@@ -1,6 +1,6 @@
 # django-sendparcel
 
-Django adapter for the [python-sendparcel](https://github.com/example/python-sendparcel) library — courier shipment management in Django projects.
+Django adapter for the [python-sendparcel](https://github.com/python-sendparcel/python-sendparcel) library — courier shipment management in Django projects.
 
 ## Table of contents
 

@@ -3,9 +3,9 @@
 [![PyPI](https://img.shields.io/pypi/v/django-sendparcel.svg)](https://pypi.org/project/django-sendparcel/)
 [![Python Version](https://img.shields.io/pypi/pyversions/django-sendparcel.svg)](https://pypi.org/project/django-sendparcel/)
 [![Django Version](https://img.shields.io/badge/django-%3E%3D5.2-blue.svg)](https://www.djangoproject.com/)
-[![License](https://img.shields.io/pypi/l/django-sendparcel.svg)](https://github.com/sendparcel/django-sendparcel/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/django-sendparcel.svg)](https://github.com/python-sendparcel/django-sendparcel/blob/main/LICENSE)
 
-Django adapter for the [python-sendparcel](https://github.com/sendparcel/python-sendparcel) multi-carrier shipping library.
+Django adapter for the [python-sendparcel](https://github.com/python-sendparcel/python-sendparcel) multi-carrier shipping library.
 
 > **Alpha (0.1.0)** — API may change between minor releases. Pin your dependency if you use it in production.
 
@@ -300,9 +300,9 @@ Test configuration is in `tests/settings.py`. The test suite covers models, prot
 ## Credits
 
 - **Author**: Dominik Kozaczko ([dominik@kozaczko.info](mailto:dominik@kozaczko.info))
-- Built on top of [python-sendparcel](https://github.com/sendparcel/python-sendparcel) core library
+- Built on top of [python-sendparcel](https://github.com/python-sendparcel/python-sendparcel) core library
 - Model swapping powered by [django-swapper](https://github.com/openwisp/django-swapper)
 
 ## License
 
-MIT License. See [LICENSE](https://github.com/sendparcel/django-sendparcel/blob/main/LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/python-sendparcel/django-sendparcel/blob/main/LICENSE) for details.
