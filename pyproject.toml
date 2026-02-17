@@ -14,16 +14,16 @@ dependencies = [
 ]
 keywords = ["django", "shipping", "parcel", "delivery", "sendparcel"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Framework :: Django",
-    "Framework :: Django :: 5.2",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Natural Language :: English",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Development Status :: 3 - Alpha",
+  "Framework :: Django",
+  "Framework :: Django :: 5.2",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 [project.urls]
@@ -68,6 +68,3 @@ ignore = ["N818", "B027"]
 [tool.ruff.lint.per-file-ignores]
 "sendparcel_django/migrations/*" = ["RUF012"]
 "example/*" = ["RUF012"]
-
-[tool.uv.sources]
-python-sendparcel = { path = "../python-sendparcel", editable = true }

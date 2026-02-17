@@ -33,3 +33,6 @@ docs/_static/
 
 # OS
 .DS_Store
+
+# uv
+uv.lock
