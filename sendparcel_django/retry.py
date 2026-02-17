@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 import anyio
 from django.db.models import Q
 
 from sendparcel_django.models import CallbackRetry
+
+logger = logging.getLogger(__name__)
 
 
 def compute_next_retry_at(
@@ -135,6 +138,11 @@ def process_due_retries(
         current_attempts = retry_record["attempts"]
 
         if current_attempts >= max_attempts:
+            logger.warning(
+                "Retry exhausted for shipment %s after %d attempts",
+                retry_record["shipment_id"],
+                current_attempts,
+            )
             retry_store.mark_exhausted(retry_id)
             continue
 
@@ -150,6 +158,12 @@ def process_due_retries(
         except Exception as exc:
             new_attempts = current_attempts + 1
             if new_attempts >= max_attempts:
+                logger.warning(
+                    "Retry exhausted for shipment %s after %d attempts: %s",
+                    retry_record["shipment_id"],
+                    new_attempts,
+                    exc,
+                )
                 retry_store.mark_failed(
                     retry_id,
                     error=str(exc),
