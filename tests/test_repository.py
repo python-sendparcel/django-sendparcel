@@ -2,7 +2,7 @@
 
 import pytest
 from sendparcel.enums import ShipmentStatus
-from sendparcel_django.models import Shipment
+from sendparcel.exceptions import ShipmentNotFoundError
 from sendparcel_django.repository import DjangoShipmentRepository
 
 
@@ -39,7 +39,7 @@ class TestDjangoShipmentRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found_raises(self):
-        with pytest.raises(Shipment.DoesNotExist):
+        with pytest.raises(ShipmentNotFoundError):
             await self.repo.get_by_id("99999")
 
     @pytest.mark.asyncio

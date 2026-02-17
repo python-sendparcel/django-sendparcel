@@ -8,9 +8,11 @@ from sendparcel.exceptions import (
     InvalidCallbackError,
     InvalidTransitionError,
     SendParcelException,
+    ShipmentNotFoundError,
 )
 
 _EXCEPTION_MAP: list[tuple[type[SendParcelException], int, str]] = [
+    (ShipmentNotFoundError, 404, "shipment_not_found"),
     (CommunicationError, 502, "communication_error"),
     (InvalidCallbackError, 400, "invalid_callback"),
     (InvalidTransitionError, 409, "invalid_transition"),

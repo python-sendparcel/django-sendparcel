@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import swapper
 from asgiref.sync import sync_to_async
+from django.core.exceptions import ObjectDoesNotExist
+from sendparcel.exceptions import ShipmentNotFoundError
 
 
 class DjangoShipmentRepository:
@@ -15,7 +17,10 @@ class DjangoShipmentRepository:
     async def get_by_id(self, shipment_id: str):
         """Fetch a shipment by primary key."""
         model = self._get_model()
-        return await sync_to_async(model.objects.get)(pk=shipment_id)
+        try:
+            return await sync_to_async(model.objects.get)(pk=shipment_id)
+        except ObjectDoesNotExist as e:
+            raise ShipmentNotFoundError(shipment_id) from e
 
     async def create(self, **kwargs):
         """Create a new shipment record."""

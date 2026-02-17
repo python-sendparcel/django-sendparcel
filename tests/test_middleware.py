@@ -10,6 +10,7 @@ from sendparcel.exceptions import (
     InvalidCallbackError,
     InvalidTransitionError,
     SendParcelException,
+    ShipmentNotFoundError,
 )
 from sendparcel_django.middleware import SendParcelExceptionMiddleware
 
@@ -114,3 +115,16 @@ class TestSendParcelExceptionMiddleware:
         assert response is not None
         body = _parse_json(response)
         assert "secret-123" not in json.dumps(body)
+
+    def test_shipment_not_found_error_returns_404(self) -> None:
+        middleware = _make_middleware()
+        request = HttpRequest()
+        exc = ShipmentNotFoundError("abc-123")
+
+        response = middleware.process_exception(request, exc)
+
+        assert response is not None
+        assert response.status_code == 404
+        body = _parse_json(response)
+        assert body["code"] == "shipment_not_found"
+        assert "abc-123" in body["detail"]
