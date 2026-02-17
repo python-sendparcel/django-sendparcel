@@ -10,13 +10,13 @@ from sendparcel.exceptions import (
     InvalidTransitionError,
     SendParcelException,
 )
-from sendparcel.provider import BaseProvider
+from sendparcel.provider import BaseProvider, PushCallbackProvider
 from sendparcel.registry import registry as core_registry
 from sendparcel_django.views import callback
 
 
 class DummyShipment:
-    id = "s-1"
+    id = 1
     status = ShipmentStatus.LABEL_READY
     provider = "dummy"
     external_id = ""
@@ -24,7 +24,7 @@ class DummyShipment:
     label_url = ""
 
 
-class DummyProvider(BaseProvider):
+class DummyProvider(BaseProvider, PushCallbackProvider):
     slug = "dummy"
     display_name = "Dummy"
 
@@ -68,6 +68,7 @@ class RequestStub:
     def __init__(self, payload: dict, headers: dict):
         self.body = json.dumps(payload).encode("utf-8")
         self.headers = headers
+        self.method = "POST"
 
 
 def test_callback_uses_flow_and_updates_status() -> None:
@@ -76,7 +77,7 @@ def test_callback_uses_flow_and_updates_status() -> None:
 
     response = callback(
         RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-        "s-1",
+        1,
         repository=repo,
         config={"dummy": {"callback_token": "ok"}},
     )
@@ -91,7 +92,7 @@ def test_callback_returns_bad_request_on_invalid_signature() -> None:
 
     response = callback(
         RequestStub({"event": "picked_up"}, {"x-dummy-token": "bad"}),
-        "s-1",
+        1,
         repository=repo,
         config={"dummy": {"callback_token": "ok"}},
     )
@@ -99,7 +100,7 @@ def test_callback_returns_bad_request_on_invalid_signature() -> None:
     assert response.status_code == 400
 
 
-class CommunicationErrorProvider(BaseProvider):
+class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
     slug = "comm_err"
     display_name = "CommErr"
 
@@ -119,7 +120,7 @@ class CommunicationErrorProvider(BaseProvider):
         pass
 
 
-class TransitionErrorProvider(BaseProvider):
+class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
     slug = "trans_err"
     display_name = "TransErr"
 
@@ -139,7 +140,7 @@ class TransitionErrorProvider(BaseProvider):
         raise InvalidTransitionError("Cannot transition from current state")
 
 
-class GenericErrorProvider(BaseProvider):
+class GenericErrorProvider(BaseProvider, PushCallbackProvider):
     slug = "generic_err"
     display_name = "GenericErr"
 
@@ -168,7 +169,7 @@ def test_callback_returns_502_on_communication_error() -> None:
 
     response = callback(
         RequestStub({"event": "status_update"}, {}),
-        "s-1",
+        1,
         repository=repo,
         config={},
     )
@@ -186,7 +187,7 @@ def test_callback_returns_409_on_invalid_transition() -> None:
 
     response = callback(
         RequestStub({"event": "status_update"}, {}),
-        "s-1",
+        1,
         repository=repo,
         config={},
     )
@@ -204,7 +205,7 @@ def test_callback_returns_400_on_generic_sendparcel_exception() -> None:
 
     response = callback(
         RequestStub({"event": "status_update"}, {}),
-        "s-1",
+        1,
         repository=repo,
         config={},
     )
@@ -213,16 +214,18 @@ def test_callback_returns_400_on_generic_sendparcel_exception() -> None:
     assert b"Something went wrong" in response.content
 
 
-def test_callback_returns_500_when_no_repository() -> None:
+def test_callback_auto_creates_repository_when_none_provided() -> None:
+    core_registry.register(DummyProvider)
+    repo = Repo()
+
     response = callback(
-        RequestStub({}, {}),
-        "s-1",
-        repository=None,
-        config={},
+        RequestStub({}, {"x-dummy-token": "ok"}),
+        1,
+        repository=repo,
+        config={"dummy": {"callback_token": "ok"}},
     )
 
-    assert response.status_code == 500
-    assert b"Repository is required" in response.content
+    assert b"Repository is required" not in response.content
 
 
 class TestCallbackEdgeCases:
@@ -233,9 +236,10 @@ class TestCallbackEdgeCases:
         class BadJsonRequest:
             body = b"not-json{{"
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            method = "POST"
 
         response = callback(
-            BadJsonRequest(), "s-1", repository=repo, config={"dummy": {}}
+            BadJsonRequest(), 1, repository=repo, config={"dummy": {}}
         )
         assert response.status_code == 400
         data = json.loads(response.content)
@@ -248,9 +252,10 @@ class TestCallbackEdgeCases:
         class BadUtf8Request:
             body = b"\x80\x81\x82"
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            method = "POST"
 
         response = callback(
-            BadUtf8Request(), "s-1", repository=repo, config={"dummy": {}}
+            BadUtf8Request(), 1, repository=repo, config={"dummy": {}}
         )
         assert response.status_code == 400
 
@@ -261,10 +266,11 @@ class TestCallbackEdgeCases:
         class EmptyRequest:
             body = b""
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            method = "POST"
 
         response = callback(
             EmptyRequest(),
-            "s-1",
+            1,
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )
@@ -275,7 +281,7 @@ class TestCallbackEdgeCases:
         repo = Repo()
         response = callback(
             RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-            "s-1",
+            1,
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )
@@ -288,7 +294,7 @@ class TestCallbackEdgeCases:
         repo = Repo()
         response = callback(
             RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-            "s-1",
+            1,
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )

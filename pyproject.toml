@@ -71,3 +71,14 @@ ignore = ["N818", "B027"]
 
 [tool.uv.sources]
 python-sendparcel = { path = "../python-sendparcel", editable = true }
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true

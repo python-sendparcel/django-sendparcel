@@ -6,6 +6,8 @@ import json
 
 import anyio
 from django.http import HttpRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from sendparcel.exceptions import (
     CommunicationError,
     InvalidCallbackError,
@@ -15,6 +17,8 @@ from sendparcel.exceptions import (
 from sendparcel.flow import ShipmentFlow
 
 
+@csrf_exempt
+@require_POST
 def callback(
     request: HttpRequest,
     shipment_id: str,
@@ -24,10 +28,9 @@ def callback(
 ) -> JsonResponse:
     """Handle provider callbacks through the core shipment flow."""
     if repository is None:
-        return JsonResponse(
-            {"detail": "Repository is required for callback processing."},
-            status=500,
-        )
+        from sendparcel_django.repository import DjangoShipmentRepository
+
+        repository = DjangoShipmentRepository()
 
     try:
         payload = (
