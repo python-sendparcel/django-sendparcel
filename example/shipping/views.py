@@ -66,6 +66,7 @@ def shipment_create(request: HttpRequest) -> HttpResponse:
             flow = ShipmentFlow(
                 repository=repository,
                 config=_get_provider_config(),
+                registry=registry,
             )
 
             try:
@@ -152,6 +153,7 @@ def shipment_create_label(request: HttpRequest, pk: int) -> HttpResponse:
     flow = ShipmentFlow(
         repository=repository,
         config=_get_provider_config(),
+        registry=registry,
     )
 
     try:
@@ -173,6 +175,7 @@ def shipment_refresh_status(request: HttpRequest, pk: int) -> HttpResponse:
     flow = ShipmentFlow(
         repository=repository,
         config=_get_provider_config(),
+        registry=registry,
     )
 
     with contextlib.suppress(Exception):
