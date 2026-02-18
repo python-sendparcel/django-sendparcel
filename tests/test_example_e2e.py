@@ -112,7 +112,10 @@ class TestFullParcelDispatchFlow:
 
         sid = str(shipment.pk)
         assert shipment.external_id == f"SIM-{sid}"
-        assert shipment.tracking_number == f"SIM-TRK-{sid}"
+        # Tracking number format: SIM-<8_HEX_CHARS>
+        # (matches Litestar gold standard)
+        assert shipment.tracking_number.startswith("SIM-")
+        assert len(shipment.tracking_number) == 12  # "SIM-" + 8 hex chars
 
         # DeliverySimProvider returns label in create_shipment, so the
         # flow transitions directly to label_ready.
