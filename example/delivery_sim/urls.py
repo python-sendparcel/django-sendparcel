@@ -7,11 +7,15 @@ from delivery_sim import views
 app_name = "delivery_sim"
 
 urlpatterns = [
-    path("", views.gateway, name="gateway"),
     path(
-        "trigger/<int:shipment_id>/",
-        views.trigger_status,
-        name="trigger_status",
+        "panel/<int:shipment_id>/",
+        views.sim_panel,
+        name="panel",
+    ),
+    path(
+        "advance/<int:shipment_id>/",
+        views.sim_advance,
+        name="advance",
     ),
     path(
         "label/<str:shipment_id>.pdf",

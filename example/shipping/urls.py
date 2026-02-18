@@ -19,8 +19,13 @@ urlpatterns = [
         name="shipment_detail",
     ),
     path(
-        "shipment/<int:pk>/tracking/",
-        views.shipment_tracking,
-        name="shipment_tracking",
+        "shipment/<int:pk>/create-label/",
+        views.shipment_create_label,
+        name="shipment_create_label",
+    ),
+    path(
+        "shipment/<int:pk>/refresh-status/",
+        views.shipment_refresh_status,
+        name="shipment_refresh_status",
     ),
 ]

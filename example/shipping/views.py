@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import anyio
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from sendparcel.flow import ShipmentFlow
 from sendparcel_django.registry import registry
 
@@ -141,12 +143,43 @@ def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
-@require_GET
-def shipment_tracking(request: HttpRequest, pk: int) -> HttpResponse:
-    """HTMX partial -- refreshed shipment status."""
+@require_POST
+def shipment_create_label(request: HttpRequest, pk: int) -> HttpResponse:
+    """Generate label for shipment."""
     shipment = get_object_or_404(Shipment, pk=pk)
+
+    repository = _get_repository()
+    flow = ShipmentFlow(
+        repository=repository,
+        config=_get_provider_config(),
+    )
+
+    try:
+        # We need to run async flow synchronously
+        shipment = anyio.run(flow.create_label, shipment)
+        messages.success(request, "Etykieta została wygenerowana.")
+    except Exception as exc:
+        messages.error(request, f"Błąd generowania etykiety: {exc}")
+
+    return redirect("shipping:shipment_detail", pk=pk)
+
+
+@require_GET
+def shipment_refresh_status(request: HttpRequest, pk: int) -> HttpResponse:
+    """HTMX partial -- refreshed shipment status badge."""
+    shipment = get_object_or_404(Shipment, pk=pk)
+
+    repository = _get_repository()
+    flow = ShipmentFlow(
+        repository=repository,
+        config=_get_provider_config(),
+    )
+
+    with contextlib.suppress(Exception):
+        shipment = anyio.run(flow.fetch_and_update_status, shipment)
+
     return TemplateResponse(
         request,
-        "shipping/shipment_tracking.html",
+        "partials/status_badge.html",
         {"shipment": shipment},
     )

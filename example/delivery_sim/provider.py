@@ -1,10 +1,15 @@
 """Delivery simulator provider — a fake carrier for the example project."""
 
 from typing import ClassVar
+from uuid import uuid4
 
-from sendparcel.exceptions import InvalidCallbackError
-from sendparcel.fsm import STATUS_TO_CALLBACK
-from sendparcel.provider import BaseProvider
+from sendparcel.enums import LabelFormat, ShipmentStatus
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+)
 from sendparcel.types import (
     AddressInfo,
     LabelInfo,
@@ -13,15 +18,61 @@ from sendparcel.types import (
     ShipmentStatusResponse,
 )
 
+# Global in-memory simulator state
+_sim_state: dict[str, str] = {}
 
-class DeliverySimProvider(BaseProvider):
+
+# Allowed forward transitions for the control panel
+_NEXT_STATUSES: dict[str, list[str]] = {
+    ShipmentStatus.CREATED: [
+        ShipmentStatus.LABEL_READY,
+        ShipmentStatus.CANCELLED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.LABEL_READY: [
+        ShipmentStatus.IN_TRANSIT,
+        ShipmentStatus.CANCELLED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.IN_TRANSIT: [
+        ShipmentStatus.OUT_FOR_DELIVERY,
+        ShipmentStatus.DELIVERED,
+        ShipmentStatus.RETURNED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.OUT_FOR_DELIVERY: [
+        ShipmentStatus.DELIVERED,
+        ShipmentStatus.RETURNED,
+        ShipmentStatus.FAILED,
+    ],
+}
+
+
+def get_sim_status(shipment_id: str) -> str:
+    return _sim_state.get(shipment_id, ShipmentStatus.NEW)
+
+
+def update_sim_status(shipment_id: str, status: str) -> None:
+    _sim_state[shipment_id] = status
+
+
+def get_next_statuses(current: str) -> list[str]:
+    return _NEXT_STATUSES.get(current, [])
+
+
+class DeliverySimProvider(
+    BaseProvider,
+    LabelProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     """Fake delivery provider for local development and demos."""
 
     slug: ClassVar[str] = "delivery-sim"
     display_name: ClassVar[str] = "Delivery Simulator"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
-    user_selectable: ClassVar[bool] = False
+    user_selectable: ClassVar[bool] = True
 
     async def create_shipment(
         self,
@@ -31,58 +82,43 @@ class DeliverySimProvider(BaseProvider):
         parcels: list[ParcelInfo],
         **kwargs,
     ) -> ShipmentCreateResult:
-        shipment_id = str(self.shipment.id)
+        # shipping app uses 'pk' for ID
+        shipment_id = str(self.shipment.pk)  # type: ignore
+        tracking = f"SIM-{uuid4().hex[:8].upper()}"
+        _sim_state[shipment_id] = ShipmentStatus.CREATED
+
         return ShipmentCreateResult(
             external_id=f"SIM-{shipment_id}",
-            tracking_number=f"SIM-TRK-{shipment_id}",
+            tracking_number=tracking,
             label=LabelInfo(
-                format="PDF",
+                format=LabelFormat.PDF,
                 url=self._label_url(shipment_id),
             ),
         )
 
     async def create_label(self, **kwargs) -> LabelInfo:
-        shipment_id = str(self.shipment.id)
+        shipment_id = str(self.shipment.pk)  # type: ignore
         return LabelInfo(
-            format="PDF",
+            format=LabelFormat.PDF,
             url=self._label_url(shipment_id),
         )
 
-    async def verify_callback(
-        self, data: dict, headers: dict, **kwargs
-    ) -> None:
-        expected_token = self.get_setting(
-            "callback_token", "example-sim-token-12345"
-        )
-        provided_token = headers.get("x-sim-token", "")
-        if provided_token != expected_token:
-            raise InvalidCallbackError("Invalid simulator callback token.")
-
-    async def handle_callback(
-        self, data: dict, headers: dict, **kwargs
-    ) -> None:
-        status_value = data.get("status")
-        if not status_value:
-            return
-
-        callback = STATUS_TO_CALLBACK.get(str(status_value), str(status_value))
-        trigger = getattr(self.shipment, callback, None)
-        may_trigger = getattr(self.shipment, "may_trigger", None)
-        if trigger is None or may_trigger is None:
-            return
-        if may_trigger(callback):
-            trigger()
-
     async def fetch_shipment_status(self, **kwargs) -> ShipmentStatusResponse:
-        return ShipmentStatusResponse(
-            status=self.shipment.status,
-        )
+        shipment_id = str(self.shipment.pk)  # type: ignore
+        # Default to current status if not in sim state
+        current = _sim_state.get(shipment_id, str(self.shipment.status))
+        return ShipmentStatusResponse(status=current)
 
     async def cancel_shipment(self, **kwargs) -> bool:
+        shipment_id = str(self.shipment.pk)  # type: ignore
+        _sim_state[shipment_id] = ShipmentStatus.CANCELLED
         return True
 
     def _label_url(self, shipment_id: str) -> str:
-        base = self.get_setting(
-            "api_url", "http://localhost:8000/delivery-sim/"
-        )
-        return f"{str(base).rstrip('/')}/label/{shipment_id}.pdf"
+        # We assume the app is running on localhost:8000 for this demo
+        # ideally this should come from settings or reverse()
+        # but provider runs in a context where reverse() might not be
+        # available cleanly without request
+        # However, for this example app, we can hardcode the path
+        # relative to root if used in browser
+        return f"/delivery-sim/label/{shipment_id}.pdf"

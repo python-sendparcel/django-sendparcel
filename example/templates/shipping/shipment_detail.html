@@ -1,42 +1,42 @@
 {% extends "base.html" %}
 
-{% block title %}Shipment #{{ shipment.pk }} — SendParcel Demo{% endblock %}
+{% block title %}Przesyłka #{{ shipment.pk }} — Demo SendParcel{% endblock %}
 
-{% block page_title %}Shipment #{{ shipment.pk }}{% endblock %}
+{% block page_title %}Przesyłka #{{ shipment.pk }}{% endblock %}
 
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Shipment details</h3>
+        <h3 class="card-title">Szczegóły przesyłki</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Reference ID</div>
+            <div class="datagrid-title">Numer referencyjny</div>
             <div class="datagrid-content">
               {{ shipment.reference_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Provider</div>
+            <div class="datagrid-title">Kurier</div>
             <div class="datagrid-content">{{ shipment.provider }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">External ID</div>
+            <div class="datagrid-title">ID zewnętrzne</div>
             <div class="datagrid-content">
               {{ shipment.external_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Tracking number</div>
+            <div class="datagrid-title">Numer śledzenia</div>
             <div class="datagrid-content">
               <strong>{{ shipment.tracking_number|default:"—" }}</strong>
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Created</div>
+            <div class="datagrid-title">Utworzono</div>
             <div class="datagrid-content">
               {{ shipment.created_at|date:"d.m.Y H:i" }}
             </div>
@@ -48,16 +48,16 @@
     <!-- Sender address -->
     <div class="card mt-3">
       <div class="card-header">
-        <h3 class="card-title">Sender</h3>
+        <h3 class="card-title">Nadawca</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Name</div>
+            <div class="datagrid-title">Nazwa</div>
             <div class="datagrid-content">{{ shipment.sender_name }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Address</div>
+            <div class="datagrid-title">Adres</div>
             <div class="datagrid-content">
               {{ shipment.sender_street }}, {{ shipment.sender_city }}
               {{ shipment.sender_postal_code }} {{ shipment.sender_country_code }}
@@ -70,16 +70,16 @@
     <!-- Receiver address -->
     <div class="card mt-3">
       <div class="card-header">
-        <h3 class="card-title">Receiver</h3>
+        <h3 class="card-title">Odbiorca</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Name</div>
+            <div class="datagrid-title">Nazwa</div>
             <div class="datagrid-content">{{ shipment.receiver_name }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Address</div>
+            <div class="datagrid-title">Adres</div>
             <div class="datagrid-content">
               {{ shipment.receiver_street }}, {{ shipment.receiver_city }}
               {{ shipment.receiver_postal_code }} {{ shipment.receiver_country_code }}
@@ -92,16 +92,16 @@
     <!-- Parcel info -->
     <div class="card mt-3">
       <div class="card-header">
-        <h3 class="card-title">Parcel</h3>
+        <h3 class="card-title">Paczka</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Weight</div>
+            <div class="datagrid-title">Waga</div>
             <div class="datagrid-content">{{ shipment.weight }} kg</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Dimensions</div>
+            <div class="datagrid-title">Wymiary</div>
             <div class="datagrid-content">
               {{ shipment.width }} x {{ shipment.height }} x {{ shipment.length }} cm
             </div>
@@ -115,7 +115,7 @@
             class="btn btn-primary"
             target="_blank"
           >
-            Download label (PDF)
+            Pobierz etykietę (PDF)
           </a>
         </div>
       {% endif %}
@@ -136,6 +136,23 @@
         {% include "shipping/shipment_tracking.html" %}
       </div>
     </div>
+
+    {% if shipment.provider == 'delivery-sim' %}
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3 class="card-title">Symulator dostawy</h3>
+      </div>
+      <div
+        class="card-body"
+        id="sim-panel"
+        hx-get="{% url 'delivery_sim:panel' shipment_id=shipment.pk %}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <div class="text-secondary">Ładowanie symulatora...</div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

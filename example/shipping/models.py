@@ -60,16 +60,32 @@ class Shipment(ShipmentModelMixin):
         return f"Shipment #{self.pk} ({self.get_status_display()})"
 
     def get_status_display(self):
-        """Return human-readable status label."""
+        """Return human-readable status label (Polish)."""
         status_labels = {
-            "new": "New",
-            "created": "Created",
-            "label_ready": "Label ready",
-            "in_transit": "In transit",
-            "out_for_delivery": "Out for delivery",
-            "delivered": "Delivered",
-            "cancelled": "Cancelled",
-            "failed": "Failed",
-            "returned": "Returned",
+            "new": "Nowa",
+            "created": "Utworzona",
+            "label_ready": "Etykieta gotowa",
+            "in_transit": "W drodze",
+            "out_for_delivery": "Wydana do doręczenia",
+            "delivered": "Doręczona",
+            "cancelled": "Anulowana",
+            "failed": "Błąd",
+            "returned": "Zwrócona",
         }
         return status_labels.get(self.status, self.status)
+
+    @property
+    def status_color(self):
+        """Return Tabler color for the status."""
+        colors = {
+            "new": "secondary",
+            "created": "info",
+            "label_ready": "cyan",
+            "in_transit": "blue",
+            "out_for_delivery": "indigo",
+            "delivered": "success",
+            "cancelled": "warning",
+            "failed": "danger",
+            "returned": "orange",
+        }
+        return colors.get(self.status, "secondary")

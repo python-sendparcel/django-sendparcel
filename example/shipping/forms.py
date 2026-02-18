@@ -10,7 +10,7 @@ class CreateShipmentForm(forms.ModelForm):
     """Form for creating a new shipment with address and parcel details."""
 
     provider = forms.ChoiceField(
-        label="Provider",
+        label="Dostawca",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
@@ -33,11 +33,28 @@ class CreateShipmentForm(forms.ModelForm):
             "height",
             "length",
         ]
+        labels = {
+            "reference_id": "Numer referencyjny",
+            "sender_name": "Nadawca - Nazwa",
+            "sender_street": "Nadawca - Ulica",
+            "sender_city": "Nadawca - Miasto",
+            "sender_postal_code": "Nadawca - Kod pocztowy",
+            "sender_country_code": "Nadawca - Kraj",
+            "receiver_name": "Odbiorca - Nazwa",
+            "receiver_street": "Odbiorca - Ulica",
+            "receiver_city": "Odbiorca - Miasto",
+            "receiver_postal_code": "Odbiorca - Kod pocztowy",
+            "receiver_country_code": "Odbiorca - Kraj",
+            "weight": "Waga (kg)",
+            "width": "Szerokość (cm)",
+            "height": "Wysokość (cm)",
+            "length": "Długość (cm)",
+        }
         widgets = {
             "reference_id": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "e.g. ORD-123",
+                    "placeholder": "np. ZAM-123",
                 }
             ),
             "sender_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -52,19 +69,19 @@ class CreateShipmentForm(forms.ModelForm):
             "receiver_name": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "John Smith",
+                    "placeholder": "Jan Kowalski",
                 }
             ),
             "receiver_street": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "10/2 Example St",
+                    "placeholder": "ul. Przykładowa 1/2",
                 }
             ),
             "receiver_city": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "Krakow",
+                    "placeholder": "Kraków",
                 }
             ),
             "receiver_postal_code": forms.TextInput(

@@ -1,30 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Shipments — SendParcel Demo{% endblock %}
+{% block title %}Przesyłki — Demo SendParcel{% endblock %}
 
-{% block page_title %}Shipments{% endblock %}
+{% block page_title %}Przesyłki{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'shipping:shipment_create' %}" class="btn btn-primary">
+  Nowa przesyłka
+</a>
+{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">All shipments</h3>
-    <div class="card-actions">
-      <a href="{% url 'shipping:shipment_create' %}" class="btn btn-primary">
-        New shipment
-      </a>
-    </div>
+    <h3 class="card-title">Wszystkie przesyłki</h3>
   </div>
   <div class="table-responsive">
     <table class="table table-vcenter card-table">
       <thead>
         <tr>
           <th>#</th>
-          <th>Reference</th>
-          <th>Provider</th>
+          <th>Numer referencyjny</th>
+          <th>Kurier</th>
           <th>Status</th>
-          <th>Receiver</th>
-          <th>Tracking number</th>
-          <th>Created</th>
+          <th>Odbiorca</th>
+          <th>Numer śledzenia</th>
+          <th>Utworzono</th>
           <th></th>
         </tr>
       </thead>
@@ -35,27 +36,23 @@
             <td>{{ shipment.reference_id|default:"—" }}</td>
             <td>{{ shipment.provider }}</td>
             <td>
-              <span class="badge
-                {% if shipment.status == 'delivered' %}bg-green
-                {% elif shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' %}bg-yellow
-                {% elif shipment.status == 'failed' or shipment.status == 'cancelled' %}bg-red
-                {% else %}bg-blue
-                {% endif %}
-              ">{{ shipment.get_status_display }}</span>
+              <span class="badge bg-{{ shipment.status_color }}">
+                {{ shipment.get_status_display }}
+              </span>
             </td>
             <td>{{ shipment.receiver_name }} / {{ shipment.receiver_city }}</td>
             <td>{{ shipment.tracking_number|default:"—" }}</td>
             <td>{{ shipment.created_at|date:"d.m.Y H:i" }}</td>
             <td>
               <a href="{% url 'shipping:shipment_detail' pk=shipment.pk %}">
-                Detail
+                Szczegóły
               </a>
             </td>
           </tr>
         {% empty %}
           <tr>
             <td colspan="8" class="text-muted text-center">
-              No shipments yet.
+              Brak przesyłek.
             </td>
           </tr>
         {% endfor %}

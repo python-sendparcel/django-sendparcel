@@ -2,75 +2,68 @@
 
 from __future__ import annotations
 
-import json
-import urllib.request
-
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
-from shipping.models import Shipment
+from sendparcel.enums import ShipmentStatus
 
+from delivery_sim.provider import (
+    get_next_statuses,
+    get_sim_status,
+    update_sim_status,
+)
 
-def _get_sim_config() -> dict:
-    """Read delivery-sim config from Django settings."""
-    provider_settings = getattr(settings, "SENDPARCEL_PROVIDER_SETTINGS", {})
-    return provider_settings.get("delivery-sim", {})
-
-
-def _send_callback(shipment: Shipment, new_status: str) -> bool:
-    """Send an HTTP callback to the sendparcel callback endpoint.
-
-    Uses urllib so the example has zero extra dependencies.
-    """
-    config = _get_sim_config()
-    token = config.get("callback_token", "example-sim-token-12345")
-
-    callback_url = (
-        f"http://localhost:8000"
-        f"{reverse('sendparcel_django:callback', args=[shipment.pk])}"
-    )
-
-    payload = json.dumps({"status": new_status}).encode("utf-8")
-    req = urllib.request.Request(
-        callback_url,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "X-Sim-Token": token,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return resp.status == 200
-    except Exception:
-        return False
+STATUS_LABELS: dict[str, str] = {
+    ShipmentStatus.NEW: "Nowa",
+    ShipmentStatus.CREATED: "Utworzona",
+    ShipmentStatus.LABEL_READY: "Etykieta gotowa",
+    ShipmentStatus.IN_TRANSIT: "W drodze",
+    ShipmentStatus.OUT_FOR_DELIVERY: "Wydana do doręczenia",
+    ShipmentStatus.DELIVERED: "Doręczona",
+    ShipmentStatus.CANCELLED: "Anulowana",
+    ShipmentStatus.FAILED: "Błąd",
+    ShipmentStatus.RETURNED: "Zwrócona",
+}
 
 
 @require_GET
-def gateway(request: HttpRequest) -> HttpResponse:
-    """Simulator dashboard — list shipments with action buttons."""
-    shipments = Shipment.objects.select_related("order").all()
+def sim_panel(request: HttpRequest, shipment_id: int) -> HttpResponse:
+    """Render simulator control panel partial (HTMX target)."""
+    sid = str(shipment_id)
+    current = get_sim_status(sid)
+    next_options = get_next_statuses(current)
+
     return TemplateResponse(
         request,
-        "delivery_sim/gateway.html",
-        {"shipments": shipments},
+        "partials/sim_panel.html",
+        {
+            "shipment_id": shipment_id,
+            "current_status": current,
+            "current_label": STATUS_LABELS.get(current, current),
+            "next_options": [
+                {"value": s, "label": STATUS_LABELS.get(s, s)}
+                for s in next_options
+            ],
+        },
     )
 
 
 @require_POST
-def trigger_status(request: HttpRequest, shipment_id: int) -> HttpResponse:
-    """Trigger a status transition via callback."""
-    shipment = get_object_or_404(Shipment, pk=shipment_id)
+def sim_advance(request: HttpRequest, shipment_id: int) -> HttpResponse:
+    """Advance simulator status for a shipment (HTMX)."""
+    sid = str(shipment_id)
+    # HTMX sends form data, but if using json-enc extension it might be JSON.
+    # Standard hx-post sends form-encoded data.
     new_status = request.POST.get("status", "")
 
-    if new_status:
-        _send_callback(shipment, new_status)
+    current = get_sim_status(sid)
+    allowed = get_next_statuses(current)
 
-    return redirect("delivery_sim:gateway")
+    if new_status in allowed:
+        update_sim_status(sid, new_status)
+
+    # Re-render panel
+    return sim_panel(request, shipment_id)
 
 
 def _build_label_pdf(text: str) -> bytes:
