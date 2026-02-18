@@ -27,9 +27,14 @@ docs/_static/
 # IDE
 .vscode/
 .idea/
+.sisyphus/
 
 # Database
 *.sqlite3
+
+# Server runtime
+*.pid
+*.log
 
 # OS
 .DS_Store
