@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory
 from sendparcel.enums import ShipmentStatus
-from sendparcel.fsm import create_shipment_machine
 from sendparcel_django.admin import ShipmentAdmin, build_status_actions
 
 # --- Legacy build_status_actions tests (backward compat) ---
@@ -25,7 +24,6 @@ def test_mark_in_transit_action_changes_status() -> None:
     shipment = FakeShipment(
         ShipmentStatus.LABEL_READY, tracking_number="TRK-TEST"
     )
-    create_shipment_machine(shipment)
     with pytest.warns(DeprecationWarning, match="build_status_actions"):
         actions = build_status_actions()
 
@@ -36,7 +34,6 @@ def test_mark_in_transit_action_changes_status() -> None:
 
 def test_cancel_action_changes_status() -> None:
     shipment = FakeShipment(ShipmentStatus.CREATED)
-    create_shipment_machine(shipment)
     with pytest.warns(DeprecationWarning, match="build_status_actions"):
         actions = build_status_actions()
 
@@ -63,7 +60,6 @@ def test_shipment_admin_list_display():
         "status",
         "provider",
         "tracking_number",
-        "label_url",
         "created_at",
     )
     assert model_admin.list_display == expected_fields
@@ -89,7 +85,6 @@ def test_shipment_admin_readonly_fields():
     model_admin = admin.site._registry[model]
     assert "external_id" in model_admin.readonly_fields
     assert "tracking_number" in model_admin.readonly_fields
-    assert "label_url" in model_admin.readonly_fields
     assert "created_at" in model_admin.readonly_fields
     assert "updated_at" in model_admin.readonly_fields
 

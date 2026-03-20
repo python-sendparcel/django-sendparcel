@@ -1,53 +1,53 @@
 {% extends "base.html" %}
 
-{% block title %}Przesyłka #{{ shipment.pk }} — Demo SendParcel{% endblock %}
+{% block title %}Shipment #{{ shipment.pk }} - Demo SendParcel{% endblock %}
 
-{% block page_title %}Przesyłka #{{ shipment.pk }}{% endblock %}
+{% block page_title %}Shipment #{{ shipment.pk }}{% endblock %}
 
 {% block content %}
 <div class="row row-deck row-cards">
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Szczegóły przesyłki</h3>
+        <h3 class="card-title">Shipment details</h3>
       </div>
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Numer referencyjny</div>
+            <div class="datagrid-title">Reference ID</div>
             <div class="datagrid-content">
               {{ shipment.reference_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Kurier</div>
+            <div class="datagrid-title">Provider</div>
             <div class="datagrid-content">{{ shipment.provider }}</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">ID zewnętrzne</div>
+            <div class="datagrid-title">External ID</div>
             <div class="datagrid-content">
               {{ shipment.external_id|default:"—" }}
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Numer śledzenia</div>
+            <div class="datagrid-title">Tracking number</div>
             <div class="datagrid-content">
               <strong>{{ shipment.tracking_number|default:"—" }}</strong>
             </div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Utworzono</div>
+            <div class="datagrid-title">Created at</div>
             <div class="datagrid-content">
               {{ shipment.created_at|date:"d.m.Y H:i" }}
             </div>
           </div>
         </div>
 
-        <div class="hr-text">Adresy</div>
+        <div class="hr-text">Addresses</div>
 
         <div class="row">
           <div class="col-md-6">
-            <h4>Nadawca</h4>
+            <h4>Sender</h4>
             <address>
               <strong>{{ shipment.sender_name }}</strong><br>
               {{ shipment.sender_street }}<br>
@@ -56,7 +56,7 @@
             </address>
           </div>
           <div class="col-md-6">
-            <h4>Odbiorca</h4>
+            <h4>Receiver</h4>
             <address>
               <strong>{{ shipment.receiver_name }}</strong><br>
               {{ shipment.receiver_street }}<br>
@@ -66,30 +66,24 @@
           </div>
         </div>
 
-        <div class="hr-text">Paczka</div>
+        <div class="hr-text">Parcel</div>
         
         <div class="datagrid">
           <div class="datagrid-item">
-            <div class="datagrid-title">Waga</div>
+            <div class="datagrid-title">Weight</div>
             <div class="datagrid-content">{{ shipment.weight }} kg</div>
           </div>
           <div class="datagrid-item">
-            <div class="datagrid-title">Wymiary</div>
+            <div class="datagrid-title">Dimensions</div>
             <div class="datagrid-content">
               {{ shipment.width }} x {{ shipment.height }} x {{ shipment.length }} cm
             </div>
           </div>
         </div>
 
-        {% if shipment.label_url %}
-        <div class="mt-3">
-          <a href="{{ shipment.label_url }}" class="btn btn-primary" target="_blank">
-            <!-- Download SVG icon from http://tabler-icons.io/i/file-download -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M12 17v-6" /><path d="M9.5 14.5l2.5 2.5l2.5 -2.5" /></svg>
-            Pobierz etykietę (PDF)
-          </a>
+        <div class="alert alert-info mt-3 mb-0">
+          Labels are returned by create operations and are not stored on the shipment record.
         </div>
-        {% endif %}
       </div>
     </div>
   </div>
@@ -103,7 +97,7 @@
                   hx-get="{% url 'shipping:shipment_refresh_status' pk=shipment.pk %}"
                   hx-target="#shipment-status"
                   hx-swap="outerHTML"
-                  title="Odśwież">
+                  title="Refresh">
             <!-- Download SVG icon from http://tabler-icons.io/i/refresh -->
             <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
           </button>
@@ -118,7 +112,7 @@
         <form method="post" action="{% url 'shipping:shipment_create_label' pk=shipment.pk %}">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-success w-100">
-            Generuj etykietę
+            Create label
           </button>
         </form>
         {% endif %}
@@ -128,7 +122,7 @@
     {% if shipment.provider == 'delivery-sim' %}
     <div class="card mt-3">
       <div class="card-header">
-        <h3 class="card-title">Symulator dostawy</h3>
+        <h3 class="card-title">Delivery simulator</h3>
       </div>
       <div
         class="card-body"
@@ -137,7 +131,7 @@
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <div class="text-secondary">Ładowanie symulatora...</div>
+        <div class="text-secondary">Loading simulator...</div>
       </div>
     </div>
     {% endif %}

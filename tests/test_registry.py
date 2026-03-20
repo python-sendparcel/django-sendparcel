@@ -1,6 +1,7 @@
 """Registry wrapper tests."""
 
 import pytest
+from sendparcel.exceptions import ProviderNotFoundError
 from sendparcel.provider import BaseProvider
 from sendparcel.registry import PluginRegistry
 from sendparcel_django.registry import DjangoPluginRegistry
@@ -53,5 +54,5 @@ def test_unregister_removes_provider():
     reg.register(FakeProvider)
     reg.unregister("fake")
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ProviderNotFoundError):
         reg.get_by_slug("fake")

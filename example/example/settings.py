@@ -62,7 +62,7 @@ DATABASES = {
     }
 }
 
-LANGUAGE_CODE = "pl"
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/Warsaw"
 USE_I18N = True
 USE_TZ = True

@@ -17,7 +17,6 @@ class ShipmentFactory(factory.django.DjangoModelFactory):
     status = ShipmentStatus.NEW
     external_id = ""
     tracking_number = ""
-    label_url = ""
     reference_id = factory.Sequence(lambda n: f"ref-{n}")
 
 

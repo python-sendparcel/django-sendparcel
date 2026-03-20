@@ -6,6 +6,7 @@ import uuid
 from typing import ClassVar
 
 import swapper
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -16,7 +17,6 @@ class ShipmentModelMixin(models.Model):
     status = models.CharField(max_length=32, default="new")
     external_id = models.CharField(max_length=128, blank=True, default="")
     tracking_number = models.CharField(max_length=128, blank=True, default="")
-    label_url = models.URLField(blank=True, default="")
     reference_id = models.CharField(
         max_length=255,
         blank=True,
@@ -52,7 +52,10 @@ class CallbackRetry(models.Model):
     provider_slug = models.CharField(max_length=64, default="unknown")
     payload = models.JSONField(default=dict)
     headers = models.JSONField(default=dict)
-    attempts = models.IntegerField(default=0)
+    attempts = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+    )
     next_retry_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(null=True, blank=True)
     status = models.CharField(

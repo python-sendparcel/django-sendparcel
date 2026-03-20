@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import anyio
 from django.http import HttpRequest, JsonResponse
@@ -12,9 +13,14 @@ from sendparcel.exceptions import (
     CommunicationError,
     InvalidCallbackError,
     InvalidTransitionError,
+    ProviderCapabilityError,
+    ProviderNotFoundError,
     SendParcelException,
+    ShipmentNotFoundError,
 )
 from sendparcel.flow import ShipmentFlow
+
+from sendparcel_django.registry import registry as django_registry
 
 
 @csrf_exempt
@@ -39,12 +45,19 @@ def callback(
             else {}
         )
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
+        return JsonResponse(
+            {"detail": "Invalid JSON payload.", "code": "invalid_json"},
+            status=400,
+        )
 
-    flow = ShipmentFlow(repository=repository, config=config or {})
+    flow = ShipmentFlow(
+        repository=repository,
+        config=config or {},
+        registry=django_registry,
+    )
 
     try:
-        shipment = anyio.run(
+        outcome = anyio.run(
             _handle_callback,
             flow,
             repository,
@@ -54,19 +67,47 @@ def callback(
             getattr(request, "body", b""),
         )
     except CommunicationError as exc:
-        return JsonResponse({"detail": str(exc)}, status=502)
+        return JsonResponse(
+            {"detail": str(exc), "code": "communication_error"},
+            status=502,
+        )
     except InvalidTransitionError as exc:
-        return JsonResponse({"detail": str(exc)}, status=409)
+        return JsonResponse(
+            {"detail": str(exc), "code": "invalid_transition"},
+            status=409,
+        )
     except InvalidCallbackError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse(
+            {"detail": str(exc), "code": "invalid_callback"},
+            status=400,
+        )
+    except ShipmentNotFoundError as exc:
+        return JsonResponse(
+            {"detail": str(exc), "code": "shipment_not_found"},
+            status=404,
+        )
+    except ProviderNotFoundError as exc:
+        return JsonResponse(
+            {"detail": str(exc), "code": "provider_not_found"},
+            status=404,
+        )
+    except ProviderCapabilityError as exc:
+        return JsonResponse(
+            {"detail": str(exc), "code": "provider_capability_error"},
+            status=409,
+        )
     except SendParcelException as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse(
+            {"detail": str(exc), "code": "sendparcel_error"},
+            status=400,
+        )
 
     return JsonResponse(
         {
-            "shipment_id": str(shipment.id),
-            "status": str(shipment.status),
-            "received": True,
+            "provider": str(outcome.shipment.provider),
+            "status": "accepted",
+            "shipment": _serialize_shipment(outcome.shipment),
+            "update": _serialize_update(outcome.update),
         }
     )
 
@@ -75,10 +116,10 @@ async def _handle_callback(
     flow: ShipmentFlow,
     repository,
     shipment_id: str,
-    payload: dict,
-    headers: dict,
+    payload: dict[str, Any],
+    headers: dict[str, Any],
     raw_body: bytes,
-):
+) -> Any:
     shipment = await repository.get_by_id(shipment_id)
     return await flow.handle_callback(
         shipment,
@@ -86,3 +127,29 @@ async def _handle_callback(
         headers,
         raw_body=raw_body,
     )
+
+
+def _serialize_shipment(shipment: Any) -> dict[str, str]:
+    return {
+        "id": str(shipment.id),
+        "status": str(shipment.status),
+        "provider": str(shipment.provider),
+        "external_id": str(shipment.external_id),
+        "tracking_number": str(shipment.tracking_number),
+    }
+
+
+def _serialize_update(update: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": (
+            str(update.get("status"))
+            if update.get("status") is not None
+            else None
+        ),
+        "tracking_number": (
+            str(update.get("tracking_number"))
+            if update.get("tracking_number") is not None
+            else None
+        ),
+        "tracking_events": list(update.get("tracking_events", [])),
+    }

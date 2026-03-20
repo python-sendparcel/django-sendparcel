@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from django import template
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -29,10 +31,13 @@ def shipment_status_badge(shipment) -> str:
     status = str(shipment.status)
     color = STATUS_COLORS.get(status, "bg-secondary")
     label = escape(status.replace("_", " "))
-    return format_html(
-        '<span class="badge {}">{}</span>',
-        color,
-        label,
+    return cast(
+        str,
+        format_html(
+            '<span class="badge {}">{}</span>',
+            color,
+            label,
+        ),
     )
 
 
@@ -51,26 +56,21 @@ def provider_choices() -> str:
                 display_name,
             )
         )
-    return mark_safe("".join(str(p) for p in parts))
+    return cast(str, mark_safe("".join(str(p) for p in parts)))
 
 
 @register.simple_tag
 def tracking_info(shipment) -> str:
-    """Render tracking number and optional label link."""
+    """Render tracking number when available."""
     tracking_number = str(getattr(shipment, "tracking_number", ""))
-    label_url = str(getattr(shipment, "label_url", ""))
 
     if not tracking_number:
         return ""
 
-    if label_url:
-        return format_html(
-            '<span class="tracking-info">{} '
-            '<a href="{}" target="_blank">Label</a></span>',
+    return cast(
+        str,
+        format_html(
+            '<span class="tracking-info">{}</span>',
             tracking_number,
-            label_url,
-        )
-    return format_html(
-        '<span class="tracking-info">{}</span>',
-        tracking_number,
+        ),
     )

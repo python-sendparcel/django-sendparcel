@@ -49,14 +49,6 @@ class DjangoShipmentAdapter:
     def tracking_number(self, value: str) -> None:
         self.wrapped.tracking_number = value
 
-    @property
-    def label_url(self) -> str:
-        return str(self.wrapped.label_url)
-
-    @label_url.setter
-    def label_url(self, value: str) -> None:
-        self.wrapped.label_url = value
-
 
 @runtime_checkable
 class CallbackRetryStore(Protocol):

@@ -54,7 +54,6 @@ Abstract Django model providing shipment fields:
 | `status` | `CharField(32)` | Current FSM status |
 | `external_id` | `CharField(128)` | Provider's shipment ID |
 | `tracking_number` | `CharField(128)` | Tracking number |
-| `label_url` | `URLField` | Label download URL |
 | `created_at` | `DateTimeField` | Auto-set on creation |
 | `updated_at` | `DateTimeField` | Auto-set on save |
 
@@ -95,6 +94,8 @@ Maps sendparcel exceptions to HTTP responses in views:
 | Exception | HTTP Status | Description |
 |-----------|-------------|-------------|
 | `ShipmentNotFoundError` | 404 Not Found | Shipment ID does not exist |
+| `ProviderNotFoundError` | 404 Not Found | Shipment provider is not registered |
+| `ProviderCapabilityError` | 409 Conflict | Provider does not support requested capability |
 | `InvalidCallbackError` | 400 Bad Request | Invalid callback payload or token |
 | `InvalidTransitionError` | 409 Conflict | Shipment status transition not allowed |
 | `CommunicationError` | 502 Bad Gateway | Provider API communication failure |

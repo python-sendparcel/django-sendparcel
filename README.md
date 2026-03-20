@@ -99,6 +99,9 @@ urlpatterns = [
 
 This exposes the callback endpoint at `sendparcel/callback/<shipment_id>/` for receiving provider webhooks.
 
+Successful callback responses include `provider`, `status`, `shipment`, and
+`update`. The adapter no longer persists label URLs on shipment models.
+
 ### 5. (Optional) Add the exception middleware
 
 ```python
@@ -113,6 +116,8 @@ This catches sendparcel exceptions and returns appropriate JSON error responses:
 | Exception              | HTTP Status |
 |------------------------|-------------|
 | `CommunicationError`  | 502         |
+| `ProviderNotFoundError` | 404       |
+| `ProviderCapabilityError` | 409    |
 | `InvalidCallbackError` | 400         |
 | `InvalidTransitionError` | 409       |
 | `SendParcelException` | 400         |
@@ -142,7 +147,7 @@ async def create_shipment(provider_slug):
         config=settings.SENDPARCEL_PROVIDER_SETTINGS,
     )
 
-    shipment = await flow.create_shipment(
+    outcome = await flow.create_shipment(
         provider_slug,
         sender_address={
             "name": "My Warehouse",
@@ -162,9 +167,10 @@ async def create_shipment(provider_slug):
         reference_id="my-order-123",  # optional reference for your system
     )
 
-    # Generate a label if the provider supports it
-    if not shipment.label_url:
-        shipment = await flow.create_label(shipment)
+    shipment = outcome.shipment
+    if outcome.label is None:
+        label_outcome = await flow.create_label(shipment)
+        return label_outcome.shipment
 
     return shipment
 ```
@@ -193,7 +199,7 @@ The form choices are dynamically populated from the plugin registry.
 
 The `ShipmentAdmin` is auto-registered for the active Shipment model (default or swapped). It provides:
 
-- **List display**: ID, reference ID, status, provider, tracking number, label URL, creation date
+- **List display**: ID, reference ID, status, provider, tracking number, creation date
 - **Filters**: status, provider
 - **Search**: tracking number, external ID, reference ID
 - **Bulk actions**: mark as in transit, mark as delivered, cancel — each action triggers FSM transitions with guard validation
@@ -221,7 +227,6 @@ The `ShipmentModelMixin` provides these fields on every Shipment (default or cus
 | `status`          | `CharField`  | Current FSM state (default: `"new"`) |
 | `external_id`     | `CharField`  | Provider-assigned shipment ID        |
 | `tracking_number` | `CharField`  | Tracking number from provider        |
-| `label_url`       | `URLField`   | URL to the shipping label            |
 | `created_at`      | `DateTimeField` | Auto-set on creation              |
 | `updated_at`      | `DateTimeField` | Auto-set on save                  |
 
@@ -252,7 +257,7 @@ python manage.py runserver
 |------------|------------|
 | Python     | >= 3.12    |
 | Django     | >= 5.2     |
-| python-sendparcel | >= 0.1.0 |
+| python-sendparcel | >= 0.1.1 |
 | anyio      | >= 4.0     |
 | swapper    | >= 1.4     |
 

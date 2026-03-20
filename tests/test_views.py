@@ -1,7 +1,7 @@
 """View tests."""
 
 import json
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
@@ -9,9 +9,11 @@ from sendparcel.exceptions import (
     InvalidCallbackError,
     InvalidTransitionError,
     SendParcelException,
+    ShipmentNotFoundError,
 )
 from sendparcel.provider import BaseProvider, PushCallbackProvider
-from sendparcel.registry import registry as core_registry
+from sendparcel.types import ShipmentCreateResult, ShipmentUpdateResult
+from sendparcel_django.registry import registry as django_registry
 from sendparcel_django.views import callback
 
 
@@ -21,7 +23,6 @@ class DummyShipment:
     provider = "dummy"
     external_id = ""
     tracking_number = "TRK-TEST"
-    label_url = ""
 
 
 class DummyProvider(BaseProvider, PushCallbackProvider):
@@ -30,8 +31,8 @@ class DummyProvider(BaseProvider, PushCallbackProvider):
 
     async def create_shipment(
         self, *, sender_address, receiver_address, parcels, **kwargs
-    ):
-        return {}
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
 
     async def verify_callback(
         self, data: dict, headers: dict, **kwargs
@@ -41,9 +42,8 @@ class DummyProvider(BaseProvider, PushCallbackProvider):
 
     async def handle_callback(
         self, data: dict, headers: dict, **kwargs
-    ) -> None:
-        if self.shipment.may_trigger("mark_in_transit"):
-            self.shipment.mark_in_transit()
+    ) -> ShipmentUpdateResult:
+        return {"status": ShipmentStatus.IN_TRANSIT}
 
 
 class Repo:
@@ -71,33 +71,54 @@ class RequestStub:
         self.method = "POST"
 
 
+def _callback_response(
+    request: Any,
+    shipment_id: str,
+    *,
+    repository: Any,
+    config: dict[str, Any],
+):
+    return callback(
+        cast(Any, request),
+        shipment_id,
+        repository=repository,
+        config=config,
+    )
+
+
 def test_callback_uses_flow_and_updates_status() -> None:
-    core_registry.register(DummyProvider)
+    django_registry.register(DummyProvider)
     repo = Repo()
 
-    response = callback(
+    response = _callback_response(
         RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-        1,
+        "1",
         repository=repo,
         config={"dummy": {"callback_token": "ok"}},
     )
 
     assert response.status_code == 200
-    assert b'"status": "in_transit"' in response.content
+    data = json.loads(response.content)
+    assert data["provider"] == "dummy"
+    assert data["status"] == "accepted"
+    assert data["shipment"]["status"] == ShipmentStatus.IN_TRANSIT
+    assert data["update"]["status"] == ShipmentStatus.IN_TRANSIT
 
 
 def test_callback_returns_bad_request_on_invalid_signature() -> None:
-    core_registry.register(DummyProvider)
+    django_registry.register(DummyProvider)
     repo = Repo()
 
-    response = callback(
+    response = _callback_response(
         RequestStub({"event": "picked_up"}, {"x-dummy-token": "bad"}),
-        1,
+        "1",
         repository=repo,
         config={"dummy": {"callback_token": "ok"}},
     )
 
     assert response.status_code == 400
+    data = json.loads(response.content)
+    assert data["code"] == "invalid_callback"
 
 
 class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
@@ -106,8 +127,8 @@ class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def create_shipment(
         self, *, sender_address, receiver_address, parcels, **kwargs
-    ):
-        return {}
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
 
     async def verify_callback(
         self, data: dict, headers: dict, **kwargs
@@ -116,8 +137,8 @@ class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def handle_callback(
         self, data: dict, headers: dict, **kwargs
-    ) -> None:
-        pass
+    ) -> ShipmentUpdateResult:
+        return {}
 
 
 class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
@@ -126,8 +147,8 @@ class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def create_shipment(
         self, *, sender_address, receiver_address, parcels, **kwargs
-    ):
-        return {}
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
 
     async def verify_callback(
         self, data: dict, headers: dict, **kwargs
@@ -136,7 +157,7 @@ class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def handle_callback(
         self, data: dict, headers: dict, **kwargs
-    ) -> None:
+    ) -> ShipmentUpdateResult:
         raise InvalidTransitionError("Cannot transition from current state")
 
 
@@ -146,8 +167,8 @@ class GenericErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def create_shipment(
         self, *, sender_address, receiver_address, parcels, **kwargs
-    ):
-        return {}
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
 
     async def verify_callback(
         self, data: dict, headers: dict, **kwargs
@@ -156,71 +177,141 @@ class GenericErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def handle_callback(
         self, data: dict, headers: dict, **kwargs
-    ) -> None:
+    ) -> ShipmentUpdateResult:
         raise SendParcelException("Something went wrong")
 
 
+class NoCallbackProvider(BaseProvider):
+    slug = "no-callback"
+    display_name = "No Callback"
+
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
+
+
 def test_callback_returns_502_on_communication_error() -> None:
-    core_registry.register(CommunicationErrorProvider)
+    django_registry.register(CommunicationErrorProvider)
     shipment = DummyShipment()
     shipment.provider = "comm_err"
     repo = Repo()
     repo.shipment = shipment
 
-    response = callback(
+    response = _callback_response(
         RequestStub({"event": "status_update"}, {}),
-        1,
+        "1",
         repository=repo,
         config={},
     )
 
     assert response.status_code == 502
-    assert b"Provider API unreachable" in response.content
+    data = json.loads(response.content)
+    assert data["code"] == "communication_error"
+    assert "Provider API unreachable" in data["detail"]
 
 
 def test_callback_returns_409_on_invalid_transition() -> None:
-    core_registry.register(TransitionErrorProvider)
+    django_registry.register(TransitionErrorProvider)
     shipment = DummyShipment()
     shipment.provider = "trans_err"
     repo = Repo()
     repo.shipment = shipment
 
-    response = callback(
+    response = _callback_response(
         RequestStub({"event": "status_update"}, {}),
-        1,
+        "1",
         repository=repo,
         config={},
     )
 
     assert response.status_code == 409
-    assert b"Cannot transition from current state" in response.content
+    data = json.loads(response.content)
+    assert data["code"] == "invalid_transition"
+    assert "Cannot transition from current state" in data["detail"]
 
 
 def test_callback_returns_400_on_generic_sendparcel_exception() -> None:
-    core_registry.register(GenericErrorProvider)
+    django_registry.register(GenericErrorProvider)
     shipment = DummyShipment()
     shipment.provider = "generic_err"
     repo = Repo()
     repo.shipment = shipment
 
-    response = callback(
+    response = _callback_response(
         RequestStub({"event": "status_update"}, {}),
-        1,
+        "1",
         repository=repo,
         config={},
     )
 
     assert response.status_code == 400
-    assert b"Something went wrong" in response.content
+    data = json.loads(response.content)
+    assert data["code"] == "sendparcel_error"
+    assert "Something went wrong" in data["detail"]
+
+
+def test_callback_returns_404_when_shipment_is_missing() -> None:
+    class MissingRepo(Repo):
+        async def get_by_id(self, shipment_id: str):
+            raise ShipmentNotFoundError(shipment_id)
+
+    django_registry.register(DummyProvider)
+
+    response = _callback_response(
+        RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+        "1",
+        repository=MissingRepo(),
+        config={"dummy": {"callback_token": "ok"}},
+    )
+
+    assert response.status_code == 404
+    data = json.loads(response.content)
+    assert data["code"] == "shipment_not_found"
+
+
+def test_callback_returns_404_when_provider_is_missing() -> None:
+    repo = Repo()
+    repo.shipment.provider = "missing-provider"
+
+    response = _callback_response(
+        RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+        "1",
+        repository=repo,
+        config={},
+    )
+
+    assert response.status_code == 404
+    data = json.loads(response.content)
+    assert data["code"] == "provider_not_found"
+    assert "missing-provider" in data["detail"]
+
+
+def test_callback_returns_409_when_provider_lacks_callback_support() -> None:
+    django_registry.register(NoCallbackProvider)
+    repo = Repo()
+    repo.shipment.provider = "no-callback"
+
+    response = _callback_response(
+        RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+        "1",
+        repository=repo,
+        config={},
+    )
+
+    assert response.status_code == 409
+    data = json.loads(response.content)
+    assert data["code"] == "provider_capability_error"
+    assert "does not support push callbacks" in data["detail"]
 
 
 def test_callback_auto_creates_repository_when_none_provided() -> None:
-    core_registry.register(DummyProvider)
+    django_registry.register(DummyProvider)
     repo = Repo()
 
-    response = callback(
+    response = _callback_response(
         RequestStub({}, {"x-dummy-token": "ok"}),
-        1,
+        "1",
         repository=repo,
         config={"dummy": {"callback_token": "ok"}},
     )
@@ -230,7 +321,7 @@ def test_callback_auto_creates_repository_when_none_provided() -> None:
 
 class TestCallbackEdgeCases:
     def test_callback_with_invalid_json(self) -> None:
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
 
         class BadJsonRequest:
@@ -238,15 +329,16 @@ class TestCallbackEdgeCases:
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
             method = "POST"
 
-        response = callback(
-            BadJsonRequest(), 1, repository=repo, config={"dummy": {}}
+        response = _callback_response(
+            BadJsonRequest(), "1", repository=repo, config={"dummy": {}}
         )
         assert response.status_code == 400
         data = json.loads(response.content)
         assert "Invalid JSON" in data["detail"]
+        assert data["code"] == "invalid_json"
 
     def test_callback_with_invalid_utf8(self) -> None:
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
 
         class BadUtf8Request:
@@ -254,13 +346,15 @@ class TestCallbackEdgeCases:
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
             method = "POST"
 
-        response = callback(
-            BadUtf8Request(), 1, repository=repo, config={"dummy": {}}
+        response = _callback_response(
+            BadUtf8Request(), "1", repository=repo, config={"dummy": {}}
         )
         assert response.status_code == 400
+        data = json.loads(response.content)
+        assert data["code"] == "invalid_json"
 
     def test_callback_with_empty_body(self) -> None:
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
 
         class EmptyRequest:
@@ -268,42 +362,44 @@ class TestCallbackEdgeCases:
             headers: ClassVar[dict] = {"x-dummy-token": "ok"}
             method = "POST"
 
-        response = callback(
+        response = _callback_response(
             EmptyRequest(),
-            1,
+            "1",
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )
         assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["status"] == "accepted"
 
     def test_success_response_contains_shipment_id(self) -> None:
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
-        response = callback(
+        response = _callback_response(
             RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-            1,
+            "1",
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )
         data = json.loads(response.content)
-        assert "shipment_id" in data
-        assert data["received"] is True
+        assert data["shipment"]["id"] == "1"
 
     def test_success_response_contains_status(self) -> None:
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
-        response = callback(
+        response = _callback_response(
             RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-            1,
+            "1",
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )
         data = json.loads(response.content)
-        assert "status" in data
+        assert data["status"] == "accepted"
+        assert data["update"]["status"] == ShipmentStatus.IN_TRANSIT
 
     def test_callback_get_request_returns_405(self) -> None:
         """GET requests to callback endpoint return 405 Method Not Allowed."""
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
 
         class GetRequest:
@@ -312,20 +408,20 @@ class TestCallbackEdgeCases:
             method = "GET"
             path = "/callback/1/"
 
-        response = callback(
-            GetRequest(), 1, repository=repo, config={"dummy": {}}
+        response = _callback_response(
+            GetRequest(), "1", repository=repo, config={"dummy": {}}
         )
         assert response.status_code == 405
 
     def test_callback_csrf_exempt(self) -> None:
         """Callback view should not require CSRF token (external webhooks)."""
-        core_registry.register(DummyProvider)
+        django_registry.register(DummyProvider)
         repo = Repo()
 
         # POST request without CSRF token in headers
-        response = callback(
+        response = _callback_response(
             RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
-            1,
+            "1",
             repository=repo,
             config={"dummy": {"callback_token": "ok"}},
         )

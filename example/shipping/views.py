@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
+from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from sendparcel.flow import ShipmentFlow
 from sendparcel_django.registry import registry
@@ -70,16 +71,21 @@ def shipment_create(request: HttpRequest) -> HttpResponse:
             )
 
             try:
-                shipment = anyio.run(
+                create_outcome = anyio.run(
                     _async_create_shipment,
                     flow,
                     provider_slug,
                     shipment_data,
                 )
+                shipment = create_outcome.shipment
                 messages.success(
                     request,
-                    f"Shipment #{shipment.pk} has been created. "
-                    f"Tracking number: {shipment.tracking_number}",
+                    format_html(
+                        "Shipment #{} has been created. Tracking number: {}{}",
+                        shipment.pk,
+                        shipment.tracking_number or "-",
+                        _label_message_suffix(create_outcome.label),
+                    ),
                 )
                 return redirect("shipping:shipment_detail", pk=shipment.pk)
             except Exception as exc:
@@ -121,16 +127,13 @@ async def _async_create_shipment(flow, provider_slug, shipment_data):
             "length_cm": shipment_data["length"],
         }
     ]
-    shipment = await flow.create_shipment(
+    return await flow.create_shipment(
         provider_slug,
         sender_address=sender_address,
         receiver_address=receiver_address,
         parcels=parcels,
         reference_id=shipment_data.get("reference_id", ""),
     )
-    if not shipment.label_url:
-        shipment = await flow.create_label(shipment)
-    return shipment
 
 
 @require_GET
@@ -157,11 +160,18 @@ def shipment_create_label(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
     try:
-        # We need to run async flow synchronously
-        shipment = anyio.run(flow.create_label, shipment)
-        messages.success(request, "Etykieta została wygenerowana.")
+        label_outcome = anyio.run(flow.create_label, shipment)
+        shipment = label_outcome.shipment
+        messages.success(
+            request,
+            format_html(
+                "Label created for shipment #{}.{}",
+                shipment.pk,
+                _label_message_suffix(label_outcome.label),
+            ),
+        )
     except Exception as exc:
-        messages.error(request, f"Błąd generowania etykiety: {exc}")
+        messages.error(request, f"Label creation failed: {exc}")
 
     return redirect("shipping:shipment_detail", pk=pk)
 
@@ -179,10 +189,25 @@ def shipment_refresh_status(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
     with contextlib.suppress(Exception):
-        shipment = anyio.run(flow.fetch_and_update_status, shipment)
+        status_outcome = anyio.run(flow.fetch_and_update_status, shipment)
+        shipment = status_outcome.shipment
 
     return TemplateResponse(
         request,
         "partials/status_badge.html",
         {"shipment": shipment},
+    )
+
+
+def _label_message_suffix(label: dict | None) -> str:
+    if not label:
+        return ""
+    label_url = label.get("url")
+    if not isinstance(label_url, str) or not label_url:
+        return ""
+    return str(
+        format_html(
+            ' <a href="{}" target="_blank" rel="noopener">Open label</a>',
+            label_url,
+        )
     )

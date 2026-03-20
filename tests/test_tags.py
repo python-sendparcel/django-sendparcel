@@ -26,11 +26,9 @@ class ShipmentStub:
         *,
         status: str = ShipmentStatus.NEW,
         tracking_number: str = "",
-        label_url: str = "",
     ) -> None:
         self.status = status
         self.tracking_number = tracking_number
-        self.label_url = label_url
 
 
 class TestShipmentStatusBadge:
@@ -111,30 +109,19 @@ class TestTrackingInfo:
             {"shipment": shipment},
         )
         assert "TRK-123" in html
+        assert "href=" not in html
 
-    def test_renders_label_link_when_url_present(self) -> None:
-        shipment = ShipmentStub(
-            tracking_number="TRK-456",
-            label_url="https://labels.example.com/456.pdf",
-        )
+    def test_does_not_render_label_link(self) -> None:
+        shipment = ShipmentStub(tracking_number="TRK-456")
         html = _render_tag(
             "{% load sendparcel_tags %}{% tracking_info shipment %}",
             {"shipment": shipment},
         )
         assert "TRK-456" in html
-        assert 'href="https://labels.example.com/456.pdf"' in html
-
-    def test_no_link_when_label_url_empty(self) -> None:
-        shipment = ShipmentStub(tracking_number="TRK-789", label_url="")
-        html = _render_tag(
-            "{% load sendparcel_tags %}{% tracking_info shipment %}",
-            {"shipment": shipment},
-        )
-        assert "TRK-789" in html
         assert "href=" not in html
 
     def test_empty_when_no_tracking_number(self) -> None:
-        shipment = ShipmentStub(tracking_number="", label_url="")
+        shipment = ShipmentStub(tracking_number="")
         html = _render_tag(
             "{% load sendparcel_tags %}{% tracking_info shipment %}",
             {"shipment": shipment},

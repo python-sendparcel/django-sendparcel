@@ -9,6 +9,8 @@ from sendparcel.exceptions import (
     CommunicationError,
     InvalidCallbackError,
     InvalidTransitionError,
+    ProviderCapabilityError,
+    ProviderNotFoundError,
     SendParcelException,
     ShipmentNotFoundError,
 )
@@ -128,3 +130,29 @@ class TestSendParcelExceptionMiddleware:
         body = _parse_json(response)
         assert body["code"] == "shipment_not_found"
         assert "abc-123" in body["detail"]
+
+    def test_provider_not_found_error_returns_404(self) -> None:
+        middleware = _make_middleware()
+        request = HttpRequest()
+        exc = ProviderNotFoundError("missing-provider")
+
+        response = middleware.process_exception(request, exc)
+
+        assert response is not None
+        assert response.status_code == 404
+        body = _parse_json(response)
+        assert body["code"] == "provider_not_found"
+        assert "missing-provider" in body["detail"]
+
+    def test_provider_capability_error_returns_409(self) -> None:
+        middleware = _make_middleware()
+        request = HttpRequest()
+        exc = ProviderCapabilityError("label creation unsupported")
+
+        response = middleware.process_exception(request, exc)
+
+        assert response is not None
+        assert response.status_code == 409
+        body = _parse_json(response)
+        assert body["code"] == "provider_capability_error"
+        assert "label creation unsupported" in body["detail"]

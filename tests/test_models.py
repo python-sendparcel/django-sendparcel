@@ -1,6 +1,7 @@
 """Model tests."""
 
 import pytest
+from django.core.exceptions import FieldDoesNotExist
 from django.db import models as django_models
 from sendparcel_django.models import (
     CallbackRetry,
@@ -33,10 +34,9 @@ class TestShipmentModelMixin:
         assert isinstance(field, django_models.CharField)
         assert field.blank is True
 
-    def test_has_label_url_field(self):
-        field = ShipmentModelMixin._meta.get_field("label_url")
-        assert isinstance(field, django_models.URLField)
-        assert field.blank is True
+    def test_does_not_have_label_url_field(self):
+        with pytest.raises(FieldDoesNotExist):
+            ShipmentModelMixin._meta.get_field("label_url")
 
     def test_has_created_at_field(self):
         field = ShipmentModelMixin._meta.get_field("created_at")
@@ -65,7 +65,7 @@ class TestShipmentConcreteModel:
         assert "status" in field_names
         assert "external_id" in field_names
         assert "tracking_number" in field_names
-        assert "label_url" in field_names
+        assert "label_url" not in field_names
         assert "created_at" in field_names
         assert "updated_at" in field_names
 

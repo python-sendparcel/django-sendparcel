@@ -51,7 +51,7 @@ class Shipment(ShipmentModelMixin):
         verbose_name = "shipment"
 ```
 
-The built-in `ShipmentModelMixin` already provides `reference_id`, `provider`, `status`, `external_id`, `tracking_number`, `label_url`, `created_at`, and `updated_at` fields.
+The built-in `ShipmentModelMixin` already provides `reference_id`, `provider`, `status`, `external_id`, `tracking_number`, `created_at`, and `updated_at` fields.
 
 ### 4. Configure Provider Settings
 
@@ -96,7 +96,7 @@ repository = DjangoShipmentRepository()
 flow = ShipmentFlow(repository=repository, config=settings.SENDPARCEL_PROVIDER_SETTINGS)
 
 # In a sync Django view, use anyio.run():
-shipment = anyio.run(
+outcome = anyio.run(
     flow.create_shipment,
     "dummy",
     sender_address={
@@ -116,13 +116,27 @@ shipment = anyio.run(
     parcels=[{"weight_kg": 2.5}],
     reference_id="my-order-123",
 )
+
+shipment = outcome.shipment
+label = outcome.label
 ```
+
+Providers may return the label inline during shipment creation. If `outcome.label`
+is `None`, call `flow.create_label(shipment)` and use the returned
+`CreateLabelOutcome`.
 
 ## Handling Callbacks
 
 The library provides a built-in callback view at `/sendparcel/callback/<shipment_id>/`. Providers send HTTP POST requests to this endpoint to notify status changes.
 
 The view is decorated with `@csrf_exempt` and `@require_POST` and handles repository instantiation automatically.
+
+Successful callback responses return JSON with:
+
+- `provider`
+- `status` set to `"accepted"`
+- `shipment` containing the persisted shipment snapshot
+- `update` containing the normalized provider update payload
 
 If you need to use a custom view, you can import and use the `callback` view as a base or reference:
 

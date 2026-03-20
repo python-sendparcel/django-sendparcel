@@ -10,27 +10,24 @@ from typing import ClassVar
 import swapper
 from django.contrib import admin
 from django.contrib.admin.sites import AlreadyRegistered
-from sendparcel.fsm import create_shipment_machine
-from transitions.core import MachineError
+from sendparcel.enums import ShipmentStatus
+from sendparcel.exceptions import InvalidTransitionError
+from sendparcel.fsm import transition_shipment
 
 
 def _transition(shipment, trigger_name: str) -> bool:
-    """Attempt a single FSM transition on a shipment instance.
-
-    Returns True if the transition succeeded, False otherwise.
-    Guards (``before`` callbacks) may raise ``MachineError`` even when
-    ``may_trigger`` returns True, so we catch that explicitly.
-    """
-    create_shipment_machine(shipment)
-    may_trigger = getattr(shipment, "may_trigger", None)
-    trigger = getattr(shipment, trigger_name, None)
-    if may_trigger is None or trigger is None:
-        return False
-    if not may_trigger(trigger_name):
+    """Attempt a single status transition on a shipment instance."""
+    target_statuses = {
+        "mark_in_transit": ShipmentStatus.IN_TRANSIT,
+        "mark_delivered": ShipmentStatus.DELIVERED,
+        "cancel": ShipmentStatus.CANCELLED,
+    }
+    target_status = target_statuses.get(trigger_name)
+    if target_status is None:
         return False
     try:
-        trigger()
-    except MachineError:
+        transition_shipment(shipment, target_status)
+    except InvalidTransitionError:
         return False
     return True
 
@@ -74,7 +71,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         "status",
         "provider",
         "tracking_number",
-        "label_url",
         "created_at",
     )
     list_filter = ("status", "provider")
@@ -82,7 +78,6 @@ class ShipmentAdmin(admin.ModelAdmin):
     readonly_fields = (
         "external_id",
         "tracking_number",
-        "label_url",
         "created_at",
         "updated_at",
     )

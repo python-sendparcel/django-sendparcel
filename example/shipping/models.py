@@ -60,17 +60,17 @@ class Shipment(ShipmentModelMixin):
         return f"Shipment #{self.pk} ({self.get_status_display()})"
 
     def get_status_display(self):
-        """Return human-readable status label (Polish)."""
+        """Return human-readable status label."""
         status_labels = {
-            "new": "Nowa",
-            "created": "Utworzona",
-            "label_ready": "Etykieta gotowa",
-            "in_transit": "W drodze",
-            "out_for_delivery": "Wydana do doręczenia",
-            "delivered": "Doręczona",
-            "cancelled": "Anulowana",
-            "failed": "Błąd",
-            "returned": "Zwrócona",
+            "new": "New",
+            "created": "Created",
+            "label_ready": "Label ready",
+            "in_transit": "In transit",
+            "out_for_delivery": "Out for delivery",
+            "delivered": "Delivered",
+            "cancelled": "Cancelled",
+            "failed": "Failed",
+            "returned": "Returned",
         }
         return status_labels.get(self.status, self.status)
 

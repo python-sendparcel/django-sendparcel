@@ -14,15 +14,15 @@ from delivery_sim.provider import (
 )
 
 STATUS_LABELS: dict[str, str] = {
-    ShipmentStatus.NEW: "Nowa",
-    ShipmentStatus.CREATED: "Utworzona",
-    ShipmentStatus.LABEL_READY: "Etykieta gotowa",
-    ShipmentStatus.IN_TRANSIT: "W drodze",
-    ShipmentStatus.OUT_FOR_DELIVERY: "Wydana do doręczenia",
-    ShipmentStatus.DELIVERED: "Doręczona",
-    ShipmentStatus.CANCELLED: "Anulowana",
-    ShipmentStatus.FAILED: "Błąd",
-    ShipmentStatus.RETURNED: "Zwrócona",
+    ShipmentStatus.NEW: "New",
+    ShipmentStatus.CREATED: "Created",
+    ShipmentStatus.LABEL_READY: "Label ready",
+    ShipmentStatus.IN_TRANSIT: "In transit",
+    ShipmentStatus.OUT_FOR_DELIVERY: "Out for delivery",
+    ShipmentStatus.DELIVERED: "Delivered",
+    ShipmentStatus.CANCELLED: "Cancelled",
+    ShipmentStatus.FAILED: "Failed",
+    ShipmentStatus.RETURNED: "Returned",
 }
 
 
