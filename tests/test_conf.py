@@ -4,7 +4,7 @@ from django.test import override_settings
 from sendparcel_django.conf import get_settings
 
 
-def test_defaults_when_no_settings_defined():
+def test_defaults_when_no_settings_defined() -> None:
     """All settings return defaults when not set in Django settings."""
     conf = get_settings()
     assert conf.PROVIDER_SETTINGS == {}
@@ -17,7 +17,7 @@ def test_defaults_when_no_settings_defined():
     SENDPARCEL_DEFAULT_PROVIDER="dummy",
     SENDPARCEL_SHIPMENT_MODEL="myapp.CustomShipment",
 )
-def test_settings_override_from_django_settings():
+def test_settings_override_from_django_settings() -> None:
     """Settings are read from Django settings when defined."""
     conf = get_settings()
     assert conf.PROVIDER_SETTINGS == {"dummy": {"api_key": "abc123"}}
@@ -25,7 +25,7 @@ def test_settings_override_from_django_settings():
     assert conf.SHIPMENT_MODEL == "myapp.CustomShipment"
 
 
-def test_get_settings_returns_fresh_values_each_call():
+def test_get_settings_returns_fresh_values_each_call() -> None:
     """get_settings() reads current Django settings (not cached)."""
     conf1 = get_settings()
     assert conf1.DEFAULT_PROVIDER == ""
