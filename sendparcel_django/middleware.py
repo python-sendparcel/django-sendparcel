@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from sendparcel.exceptions import (
     CommunicationError,
@@ -30,7 +32,10 @@ class SendParcelExceptionMiddleware:
     Order matters: more specific exception types are checked first.
     """
 
-    def __init__(self, get_response):
+    def __init__(
+        self,
+        get_response: Callable[[HttpRequest], HttpResponse],
+    ) -> None:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:

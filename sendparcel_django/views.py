@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import anyio
 from django.http import HttpRequest, JsonResponse
@@ -19,6 +19,8 @@ from sendparcel.exceptions import (
     ShipmentNotFoundError,
 )
 from sendparcel.flow import ShipmentFlow
+from sendparcel.protocols import ShipmentRepository
+from sendparcel.types import ShipmentUpdateOutcome, ShipmentUpdateResult
 
 from sendparcel_django.registry import registry as django_registry
 
@@ -29,8 +31,8 @@ def callback(
     request: HttpRequest,
     shipment_id: str,
     *,
-    repository=None,
-    config: dict | None = None,
+    repository: ShipmentRepository | None = None,
+    config: dict[str, Any] | None = None,
 ) -> JsonResponse:
     """Handle provider callbacks through the core shipment flow."""
     if repository is None:
@@ -40,7 +42,7 @@ def callback(
 
     try:
         payload = (
-            json.loads(request.body.decode("utf-8"))
+            cast(dict[str, Any], json.loads(request.body.decode("utf-8")))
             if getattr(request, "body", b"")
             else {}
         )
@@ -114,12 +116,12 @@ def callback(
 
 async def _handle_callback(
     flow: ShipmentFlow,
-    repository,
+    repository: ShipmentRepository,
     shipment_id: str,
     payload: dict[str, Any],
     headers: dict[str, Any],
     raw_body: bytes,
-) -> Any:
+) -> ShipmentUpdateOutcome:
     shipment = await repository.get_by_id(shipment_id)
     return await flow.handle_callback(
         shipment,
@@ -139,7 +141,7 @@ def _serialize_shipment(shipment: Any) -> dict[str, str]:
     }
 
 
-def _serialize_update(update: dict[str, Any]) -> dict[str, Any]:
+def _serialize_update(update: ShipmentUpdateResult) -> dict[str, Any]:
     return {
         "status": (
             str(update.get("status"))

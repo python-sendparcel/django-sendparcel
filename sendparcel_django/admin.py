@@ -5,17 +5,25 @@ from __future__ import annotations
 import contextlib
 import warnings
 from collections.abc import Callable, Iterable
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, cast
 
 import swapper
 from django.contrib import admin
-from django.contrib.admin.sites import AlreadyRegistered
+from django.contrib.admin.exceptions import AlreadyRegistered
+from django.db import models
+from django.http import HttpRequest
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import InvalidTransitionError
 from sendparcel.fsm import transition_shipment
+from sendparcel.protocols import Shipment as CoreShipment
+
+if TYPE_CHECKING:
+    ShipmentAdminBase = admin.ModelAdmin[models.Model]
+else:
+    ShipmentAdminBase = admin.ModelAdmin
 
 
-def _transition(shipment, trigger_name: str) -> bool:
+def _transition(shipment: Any, trigger_name: str) -> bool:
     """Attempt a single status transition on a shipment instance."""
     target_statuses = {
         "mark_in_transit": ShipmentStatus.IN_TRANSIT,
@@ -26,13 +34,13 @@ def _transition(shipment, trigger_name: str) -> bool:
     if target_status is None:
         return False
     try:
-        transition_shipment(shipment, target_status)
+        transition_shipment(cast(CoreShipment, shipment), target_status)
     except InvalidTransitionError:
         return False
     return True
 
 
-def build_status_actions() -> dict[str, Callable[[Iterable], int]]:
+def build_status_actions() -> dict[str, Callable[[Iterable[Any]], int]]:
     """Create reusable bulk actions for shipment status transitions.
 
     .. deprecated::
@@ -46,10 +54,10 @@ def build_status_actions() -> dict[str, Callable[[Iterable], int]]:
         stacklevel=2,
     )
 
-    def mark_in_transit(shipments: Iterable) -> int:
+    def mark_in_transit(shipments: Iterable[Any]) -> int:
         return sum(_transition(s, "mark_in_transit") for s in shipments)
 
-    def cancel(shipments: Iterable) -> int:
+    def cancel(shipments: Iterable[Any]) -> int:
         return sum(_transition(s, "cancel") for s in shipments)
 
     return {
@@ -58,11 +66,14 @@ def build_status_actions() -> dict[str, Callable[[Iterable], int]]:
     }
 
 
-def _get_shipment_model():
-    return swapper.load_model("sendparcel_django", "Shipment")
+def _get_shipment_model() -> type[models.Model]:
+    return cast(
+        type[models.Model],
+        swapper.load_model("sendparcel_django", "Shipment"),
+    )
 
 
-class ShipmentAdmin(admin.ModelAdmin):
+class ShipmentAdmin(ShipmentAdminBase):
     """Full ModelAdmin for the (swappable) Shipment model."""
 
     list_display = (
@@ -82,14 +93,18 @@ class ShipmentAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
-    actions: ClassVar[list[str]] = [
+    actions = (
         "mark_in_transit",
         "mark_delivered",
         "cancel_shipment",
-    ]
+    )
 
     @admin.action(description="Mark selected as in transit")
-    def mark_in_transit(self, request, queryset):
+    def mark_in_transit(
+        self,
+        request: HttpRequest,
+        queryset: models.QuerySet[Any],
+    ) -> None:
         count = 0
         for shipment in queryset:
             if _transition(shipment, "mark_in_transit"):
@@ -98,7 +113,11 @@ class ShipmentAdmin(admin.ModelAdmin):
         self.message_user(request, f"{count} shipment(s) marked as in transit.")
 
     @admin.action(description="Mark selected as delivered")
-    def mark_delivered(self, request, queryset):
+    def mark_delivered(
+        self,
+        request: HttpRequest,
+        queryset: models.QuerySet[Any],
+    ) -> None:
         count = 0
         for shipment in queryset:
             if _transition(shipment, "mark_delivered"):
@@ -107,7 +126,11 @@ class ShipmentAdmin(admin.ModelAdmin):
         self.message_user(request, f"{count} shipment(s) marked as delivered.")
 
     @admin.action(description="Cancel selected shipments")
-    def cancel_shipment(self, request, queryset):
+    def cancel_shipment(
+        self,
+        request: HttpRequest,
+        queryset: models.QuerySet[Any],
+    ) -> None:
         count = 0
         for shipment in queryset:
             if _transition(shipment, "cancel"):

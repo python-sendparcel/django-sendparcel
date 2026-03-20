@@ -8,7 +8,7 @@ class DeliverySimConfig(AppConfig):
     name = "delivery_sim"
     verbose_name = "Delivery simulator"
 
-    def ready(self):
+    def ready(self) -> None:
         from sendparcel_django.registry import registry
 
         from delivery_sim.provider import DeliverySimProvider

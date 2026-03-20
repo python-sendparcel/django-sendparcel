@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import sys
 import types
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,7 +28,7 @@ from delivery_sim.provider import DeliverySimProvider  # noqa: E402
 
 PROVIDER_SLUG = "delivery-sim"
 
-PROVIDER_CONFIG: dict[str, dict] = {
+PROVIDER_CONFIG: dict[str, dict[str, str]] = {
     PROVIDER_SLUG: {
         "api_url": "http://localhost:8000/delivery-sim/",
         "callback_token": "example-sim-token-12345",
@@ -59,7 +60,7 @@ RECEIVER_ADDRESS = cast(
 PARCELS = cast(list[ParcelInfo], [{"weight_kg": 2.5}])
 
 
-def _get_build_label_pdf():
+def _get_build_label_pdf() -> Callable[[str], bytes]:
     """Import ``_build_label_pdf`` from delivery_sim.views.
 
     ``delivery_sim.views`` has a top-level import of
@@ -77,7 +78,7 @@ def _get_build_label_pdf():
 
     try:
         mod = importlib.import_module("delivery_sim.views")
-        return mod._build_label_pdf
+        return cast(Callable[[str], bytes], mod._build_label_pdf)
     finally:
         if stub_installed:
             sys.modules.pop(stub_key, None)
@@ -87,7 +88,7 @@ def _get_build_label_pdf():
 _build_label_pdf = _get_build_label_pdf()
 
 
-def _make_flow(repo: DjangoShipmentRepository):
+def _make_flow(repo: DjangoShipmentRepository) -> Any:
     """Build a ``ShipmentFlow`` wired to the delivery-sim provider."""
     from sendparcel.flow import ShipmentFlow
 
@@ -227,7 +228,7 @@ class TestDummyProviderWithSeparateLabelCreation:
 
         django_registry.register(DummyProvider)
 
-        dummy_config: dict[str, dict] = {
+        dummy_config: dict[str, dict[str, str]] = {
             "dummy": {
                 "label_base_url": "https://dummy.local/labels",
             },

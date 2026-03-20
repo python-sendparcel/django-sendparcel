@@ -1,6 +1,8 @@
 """Delivery simulator provider — a fake carrier for the example project."""
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import Any, ClassVar
 from uuid import uuid4
 
 from sendparcel.enums import LabelFormat, ShipmentStatus
@@ -80,10 +82,9 @@ class DeliverySimProvider(
         sender_address: AddressInfo,
         receiver_address: AddressInfo,
         parcels: list[ParcelInfo],
-        **kwargs,
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
-        # shipping app uses 'pk' for ID
-        shipment_id = str(self.shipment.pk)  # type: ignore
+        shipment_id = self._shipment_id()
         tracking = f"SIM-{uuid4().hex[:8].upper()}"
         _sim_state[shipment_id] = ShipmentStatus.CREATED
 
@@ -96,23 +97,29 @@ class DeliverySimProvider(
             ),
         )
 
-    async def create_label(self, **kwargs) -> LabelInfo:
-        shipment_id = str(self.shipment.pk)  # type: ignore
+    async def create_label(self, **kwargs: Any) -> LabelInfo:
+        shipment_id = self._shipment_id()
         return LabelInfo(
             format=LabelFormat.PDF,
             url=self._label_url(shipment_id),
         )
 
-    async def fetch_shipment_status(self, **kwargs) -> ShipmentStatusResponse:
-        shipment_id = str(self.shipment.pk)  # type: ignore
+    async def fetch_shipment_status(
+        self, **kwargs: Any
+    ) -> ShipmentStatusResponse:
+        shipment_id = self._shipment_id()
         # Default to current status if not in sim state
         current = _sim_state.get(shipment_id, str(self.shipment.status))
         return ShipmentStatusResponse(status=current)
 
-    async def cancel_shipment(self, **kwargs) -> bool:
-        shipment_id = str(self.shipment.pk)  # type: ignore
+    async def cancel_shipment(self, **kwargs: Any) -> bool:
+        shipment_id = self._shipment_id()
         _sim_state[shipment_id] = ShipmentStatus.CANCELLED
         return True
+
+    def _shipment_id(self) -> str:
+        shipment_pk = getattr(self.shipment, "pk", self.shipment.id)
+        return str(shipment_pk)
 
     def _label_url(self, shipment_id: str) -> str:
         # We assume the app is running on localhost:8000 for this demo

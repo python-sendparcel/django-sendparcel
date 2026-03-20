@@ -18,8 +18,16 @@ class DjangoShipmentAdapter:
     wrapped: Any
 
     @property
+    def pk(self) -> Any:
+        return self.wrapped.pk
+
+    @property
     def id(self) -> str:
         return str(self.wrapped.id)
+
+    @id.setter
+    def id(self, value: str) -> None:
+        self.wrapped.id = value
 
     @property
     def status(self) -> str:
@@ -32,6 +40,10 @@ class DjangoShipmentAdapter:
     @property
     def provider(self) -> str:
         return str(self.wrapped.provider)
+
+    @provider.setter
+    def provider(self, value: str) -> None:
+        self.wrapped.provider = value
 
     @property
     def external_id(self) -> str:
@@ -48,6 +60,12 @@ class DjangoShipmentAdapter:
     @tracking_number.setter
     def tracking_number(self, value: str) -> None:
         self.wrapped.tracking_number = value
+
+    def save(self, *args: Any, **kwargs: Any) -> Any:
+        return self.wrapped.save(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.wrapped, name)
 
 
 @runtime_checkable

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, cast
 
 from django.http import HttpRequest, HttpResponse
 from sendparcel.exceptions import (
@@ -28,8 +29,8 @@ def _make_middleware(
     return SendParcelExceptionMiddleware(get_response)
 
 
-def _parse_json(response: HttpResponse) -> dict:
-    return json.loads(response.content.decode("utf-8"))
+def _parse_json(response: HttpResponse) -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(response.content.decode("utf-8")))
 
 
 class TestSendParcelExceptionMiddleware:

@@ -1,12 +1,21 @@
 """Forms for the shipping example app."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
 from django import forms
 from sendparcel_django.registry import registry
 
 from shipping.models import Shipment
 
+if TYPE_CHECKING:
+    ShipmentFormBase = forms.ModelForm[Shipment]
+else:
+    ShipmentFormBase = forms.ModelForm
 
-class CreateShipmentForm(forms.ModelForm):
+
+class CreateShipmentForm(ShipmentFormBase):
     """Form for creating a new shipment with address and parcel details."""
 
     provider = forms.ChoiceField(
@@ -101,9 +110,10 @@ class CreateShipmentForm(forms.ModelForm):
             "length": forms.NumberInput(attrs={"class": "form-control"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         provider_choices = kwargs.pop("provider_choices", None)
         super().__init__(*args, **kwargs)
         if provider_choices is None:
             provider_choices = registry.get_choices()
-        self.fields["provider"].choices = provider_choices
+        provider_field = cast(forms.ChoiceField, self.fields["provider"])
+        provider_field.choices = provider_choices

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.template import Context, Template
 from sendparcel.enums import ShipmentStatus
 from sendparcel.provider import BaseProvider
+from sendparcel.types import AddressInfo, ParcelInfo, ShipmentCreateResult
 from sendparcel_django.registry import registry
 
 
@@ -13,9 +16,14 @@ class FakeProvider(BaseProvider):
     display_name = "Fake Carrier"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
-    ):
-        return {}
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
+    ) -> ShipmentCreateResult:
+        return {"external_id": "fake-1"}
 
 
 class ShipmentStub:
@@ -130,6 +138,6 @@ class TestTrackingInfo:
         assert stripped == ""
 
 
-def _render_tag(template_str: str, context: dict) -> str:
+def _render_tag(template_str: str, context: dict[str, Any]) -> str:
     template = Template(template_str)
     return template.render(Context(context))

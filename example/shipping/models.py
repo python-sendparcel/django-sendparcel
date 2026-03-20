@@ -51,15 +51,15 @@ class Shipment(ShipmentModelMixin):
 
     created_at = models.DateTimeField("created at", auto_now_add=True)
 
-    class Meta:
+    class Meta(ShipmentModelMixin.Meta):
         ordering: ClassVar[list[str]] = ["-created_at"]
         verbose_name = "shipment"
         verbose_name_plural = "shipments"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Shipment #{self.pk} ({self.get_status_display()})"
 
-    def get_status_display(self):
+    def get_status_display(self) -> str:
         """Return human-readable status label."""
         status_labels = {
             "new": "New",
@@ -72,10 +72,10 @@ class Shipment(ShipmentModelMixin):
             "failed": "Failed",
             "returned": "Returned",
         }
-        return status_labels.get(self.status, self.status)
+        return status_labels.get(self.status, str(self.status))
 
     @property
-    def status_color(self):
+    def status_color(self) -> str:
         """Return Tabler color for the status."""
         colors = {
             "new": "secondary",

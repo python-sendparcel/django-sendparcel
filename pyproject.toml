@@ -68,12 +68,14 @@ ignore = ["N818", "B027"]
 [tool.ruff.lint.per-file-ignores]
 "sendparcel_django/migrations/*" = ["RUF012"]
 "example/*" = ["RUF012"]
+"sendparcel_django/protocols.py" = ["A003"]
 
 [tool.uv.sources]
 python-sendparcel = { path = "../python-sendparcel", editable = true }
 
 [dependency-groups]
 dev = [
+    "django-stubs[compatible-mypy]>=6.0.1",
     "mypy>=1.19.1",
     "playwright>=1.58.0",
 ]
@@ -83,3 +85,15 @@ strict = true
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
+plugins = ["mypy_django_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = ["*.migrations.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["swapper"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"

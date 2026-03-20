@@ -230,4 +230,5 @@ class TestProcessDueRetries:
         record = CallbackRetry.objects.get(id=retry_id)
         assert record.status == "pending"
         assert record.attempts == 2
+        assert record.last_error is not None
         assert "temporary error" in record.last_error

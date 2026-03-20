@@ -8,11 +8,11 @@ from sendparcel_django.repository import DjangoShipmentRepository
 
 @pytest.mark.django_db
 class TestDjangoShipmentRepository:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.repo = DjangoShipmentRepository()
 
     @pytest.mark.asyncio
-    async def test_create_shipment(self):
+    async def test_create_shipment(self) -> None:
         shipment = await self.repo.create(
             reference_id="ref-1",
             provider="dummy",
@@ -25,7 +25,7 @@ class TestDjangoShipmentRepository:
         assert shipment.status == ShipmentStatus.NEW
 
     @pytest.mark.asyncio
-    async def test_get_by_id(self):
+    async def test_get_by_id(self) -> None:
         created = await self.repo.create(
             reference_id="ref-2",
             provider="dummy",
@@ -38,12 +38,12 @@ class TestDjangoShipmentRepository:
         assert fetched.reference_id == "ref-2"
 
     @pytest.mark.asyncio
-    async def test_get_by_id_not_found_raises(self):
+    async def test_get_by_id_not_found_raises(self) -> None:
         with pytest.raises(ShipmentNotFoundError):
             await self.repo.get_by_id("99999")
 
     @pytest.mark.asyncio
-    async def test_save_persists_changes(self):
+    async def test_save_persists_changes(self) -> None:
         shipment = await self.repo.create(
             reference_id="ref-3",
             provider="dummy",
@@ -57,7 +57,7 @@ class TestDjangoShipmentRepository:
         assert fetched.tracking_number == "TRACK-123"
 
     @pytest.mark.asyncio
-    async def test_update_status(self):
+    async def test_update_status(self) -> None:
         shipment = await self.repo.create(
             reference_id="ref-4",
             provider="dummy",

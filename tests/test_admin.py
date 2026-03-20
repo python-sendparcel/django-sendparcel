@@ -1,13 +1,26 @@
 """Admin tests."""
 
+from __future__ import annotations
+
+from typing import Any, cast
+
 import pytest
 import swapper
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.backends.base import SessionBase
+from django.contrib.sessions.backends.db import SessionStore
 from django.test import RequestFactory
 from sendparcel.enums import ShipmentStatus
 from sendparcel_django.admin import ShipmentAdmin, build_status_actions
+
+
+def _shipment_model() -> Any:
+    model = swapper.load_model("sendparcel_django", "Shipment")
+    assert model is not None
+    return model
+
 
 # --- Legacy build_status_actions tests (backward compat) ---
 
@@ -45,14 +58,14 @@ def test_cancel_action_changes_status() -> None:
 # --- ShipmentAdmin registration tests ---
 
 
-def test_shipment_admin_is_registered():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def test_shipment_admin_is_registered() -> None:
+    model = _shipment_model()
     assert model in admin.site._registry
     assert isinstance(admin.site._registry[model], ShipmentAdmin)
 
 
-def test_shipment_admin_list_display():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def test_shipment_admin_list_display() -> None:
+    model = _shipment_model()
     model_admin = admin.site._registry[model]
     expected_fields = (
         "id",
@@ -65,23 +78,23 @@ def test_shipment_admin_list_display():
     assert model_admin.list_display == expected_fields
 
 
-def test_shipment_admin_list_filter():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def test_shipment_admin_list_filter() -> None:
+    model = _shipment_model()
     model_admin = admin.site._registry[model]
     assert "status" in model_admin.list_filter
     assert "provider" in model_admin.list_filter
 
 
-def test_shipment_admin_search_fields():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def test_shipment_admin_search_fields() -> None:
+    model = _shipment_model()
     model_admin = admin.site._registry[model]
     assert "tracking_number" in model_admin.search_fields
     assert "external_id" in model_admin.search_fields
     assert "reference_id" in model_admin.search_fields
 
 
-def test_shipment_admin_readonly_fields():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def test_shipment_admin_readonly_fields() -> None:
+    model = _shipment_model()
     model_admin = admin.site._registry[model]
     assert "external_id" in model_admin.readonly_fields
     assert "tracking_number" in model_admin.readonly_fields
@@ -93,31 +106,31 @@ def test_shipment_admin_readonly_fields():
 
 
 @pytest.fixture
-def shipment_model():
-    return swapper.load_model("sendparcel_django", "Shipment")
+def shipment_model() -> Any:
+    return _shipment_model()
 
 
 @pytest.fixture
-def model_admin():
-    model = swapper.load_model("sendparcel_django", "Shipment")
+def model_admin() -> Any:
+    model = _shipment_model()
     return admin.site._registry[model]
 
 
 @pytest.fixture
-def admin_request():
+def admin_request() -> Any:
     factory = RequestFactory()
     request = factory.get("/admin/")
     request.user = User(username="admin", is_staff=True, is_superuser=True)
     # MessageMiddleware stores messages on the request
-    request.session = "session"  # type: ignore[attr-defined]
+    request.session = cast(SessionBase, SessionStore())
     request._messages = FallbackStorage(request)  # type: ignore[attr-defined]
     return request
 
 
 @pytest.mark.django_db
 def test_admin_action_mark_in_transit(
-    shipment_model, model_admin, admin_request
-):
+    shipment_model: Any, model_admin: Any, admin_request: Any
+) -> None:
     shipment = shipment_model.objects.create(
         reference_id="o-1",
         provider="dummy",
@@ -134,8 +147,8 @@ def test_admin_action_mark_in_transit(
 
 @pytest.mark.django_db
 def test_admin_action_mark_delivered(
-    shipment_model, model_admin, admin_request
-):
+    shipment_model: Any, model_admin: Any, admin_request: Any
+) -> None:
     shipment = shipment_model.objects.create(
         reference_id="o-2",
         provider="dummy",
@@ -151,7 +164,9 @@ def test_admin_action_mark_delivered(
 
 
 @pytest.mark.django_db
-def test_admin_action_cancel(shipment_model, model_admin, admin_request):
+def test_admin_action_cancel(
+    shipment_model: Any, model_admin: Any, admin_request: Any
+) -> None:
     shipment = shipment_model.objects.create(
         reference_id="o-3",
         provider="dummy",
@@ -167,8 +182,8 @@ def test_admin_action_cancel(shipment_model, model_admin, admin_request):
 
 @pytest.mark.django_db
 def test_admin_action_skips_invalid_transition(
-    shipment_model, model_admin, admin_request
-):
+    shipment_model: Any, model_admin: Any, admin_request: Any
+) -> None:
     """Action on a shipment in wrong state should not change it."""
     shipment = shipment_model.objects.create(
         reference_id="o-4",

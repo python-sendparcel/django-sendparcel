@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from django import template
 from django.utils.html import escape, format_html
@@ -26,7 +26,7 @@ STATUS_COLORS: dict[str, str] = {
 
 
 @register.simple_tag
-def shipment_status_badge(shipment) -> str:
+def shipment_status_badge(shipment: Any) -> str:
     """Render a colored badge for the shipment status."""
     status = str(shipment.status)
     color = STATUS_COLORS.get(status, "bg-secondary")
@@ -60,7 +60,7 @@ def provider_choices() -> str:
 
 
 @register.simple_tag
-def tracking_info(shipment) -> str:
+def tracking_info(shipment: Any) -> str:
     """Render tracking number when available."""
     tracking_number = str(getattr(shipment, "tracking_number", ""))
 

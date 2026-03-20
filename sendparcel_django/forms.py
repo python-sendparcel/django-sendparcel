@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from django import forms
 
 from sendparcel_django.registry import registry
@@ -12,6 +14,7 @@ class ProviderChoiceForm(forms.Form):
 
     provider = forms.ChoiceField(choices=[])
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["provider"].choices = registry.get_choices()
+        provider_field = cast(forms.ChoiceField, self.fields["provider"])
+        provider_field.choices = registry.get_choices()

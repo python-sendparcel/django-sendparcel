@@ -1,5 +1,7 @@
 """View tests."""
 
+from __future__ import annotations
+
 import json
 from typing import Any, ClassVar, cast
 
@@ -12,7 +14,12 @@ from sendparcel.exceptions import (
     ShipmentNotFoundError,
 )
 from sendparcel.provider import BaseProvider, PushCallbackProvider
-from sendparcel.types import ShipmentCreateResult, ShipmentUpdateResult
+from sendparcel.types import (
+    AddressInfo,
+    ParcelInfo,
+    ShipmentCreateResult,
+    ShipmentUpdateResult,
+)
 from sendparcel_django.registry import registry as django_registry
 from sendparcel_django.views import callback
 
@@ -30,18 +37,29 @@ class DummyProvider(BaseProvider, PushCallbackProvider):
     display_name = "Dummy"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
         return {"external_id": "ext-1"}
 
     async def verify_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> None:
         if headers.get("x-dummy-token") != "ok":
             raise InvalidCallbackError("BAD TOKEN")
 
     async def handle_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> ShipmentUpdateResult:
         return {"status": ShipmentStatus.IN_TRANSIT}
 
@@ -50,22 +68,28 @@ class Repo:
     def __init__(self) -> None:
         self.shipment = DummyShipment()
 
-    async def get_by_id(self, shipment_id: str):
+    async def get_by_id(self, shipment_id: str) -> DummyShipment:
         return self.shipment
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs: Any) -> DummyShipment:
         raise NotImplementedError
 
-    async def save(self, shipment):
+    async def save(self, shipment: DummyShipment) -> DummyShipment:
         self.shipment = shipment
         return shipment
 
-    async def update_status(self, shipment_id: str, status: str, **fields):
+    async def update_status(
+        self, shipment_id: str, status: str, **fields: Any
+    ) -> DummyShipment:
         raise NotImplementedError
 
 
 class RequestStub:
-    def __init__(self, payload: dict, headers: dict):
+    def __init__(
+        self,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+    ) -> None:
         self.body = json.dumps(payload).encode("utf-8")
         self.headers = headers
         self.method = "POST"
@@ -77,7 +101,7 @@ def _callback_response(
     *,
     repository: Any,
     config: dict[str, Any],
-):
+) -> Any:
     return callback(
         cast(Any, request),
         shipment_id,
@@ -126,17 +150,28 @@ class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
     display_name = "CommErr"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
         return {"external_id": "ext-1"}
 
     async def verify_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> None:
         raise CommunicationError("Provider API unreachable")
 
     async def handle_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> ShipmentUpdateResult:
         return {}
 
@@ -146,17 +181,28 @@ class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
     display_name = "TransErr"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
         return {"external_id": "ext-1"}
 
     async def verify_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> None:
         pass
 
     async def handle_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> ShipmentUpdateResult:
         raise InvalidTransitionError("Cannot transition from current state")
 
@@ -166,17 +212,28 @@ class GenericErrorProvider(BaseProvider, PushCallbackProvider):
     display_name = "GenericErr"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
         return {"external_id": "ext-1"}
 
     async def verify_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> None:
         pass
 
     async def handle_callback(
-        self, data: dict, headers: dict, **kwargs
+        self,
+        data: dict[str, Any],
+        headers: dict[str, Any],
+        **kwargs: Any,
     ) -> ShipmentUpdateResult:
         raise SendParcelException("Something went wrong")
 
@@ -186,7 +243,12 @@ class NoCallbackProvider(BaseProvider):
     display_name = "No Callback"
 
     async def create_shipment(
-        self, *, sender_address, receiver_address, parcels, **kwargs
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
     ) -> ShipmentCreateResult:
         return {"external_id": "ext-1"}
 
@@ -253,7 +315,7 @@ def test_callback_returns_400_on_generic_sendparcel_exception() -> None:
 
 def test_callback_returns_404_when_shipment_is_missing() -> None:
     class MissingRepo(Repo):
-        async def get_by_id(self, shipment_id: str):
+        async def get_by_id(self, shipment_id: str) -> DummyShipment:
             raise ShipmentNotFoundError(shipment_id)
 
     django_registry.register(DummyProvider)
@@ -326,7 +388,7 @@ class TestCallbackEdgeCases:
 
         class BadJsonRequest:
             body = b"not-json{{"
-            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
 
         response = _callback_response(
@@ -343,7 +405,7 @@ class TestCallbackEdgeCases:
 
         class BadUtf8Request:
             body = b"\x80\x81\x82"
-            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
 
         response = _callback_response(
@@ -359,7 +421,7 @@ class TestCallbackEdgeCases:
 
         class EmptyRequest:
             body = b""
-            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
 
         response = _callback_response(
@@ -404,7 +466,7 @@ class TestCallbackEdgeCases:
 
         class GetRequest:
             body = b"{}"
-            headers: ClassVar[dict] = {"x-dummy-token": "ok"}
+            headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "GET"
             path = "/callback/1/"
 

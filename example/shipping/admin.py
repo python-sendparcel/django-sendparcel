@@ -1,12 +1,21 @@
 """Admin configuration for the shipping example app."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.contrib import admin
-from django.contrib.admin.sites import AlreadyRegistered
+from django.contrib.admin.exceptions import AlreadyRegistered
 
 from shipping.models import Shipment
 
+if TYPE_CHECKING:
+    ShipmentAdminBase = admin.ModelAdmin[Shipment]
+else:
+    ShipmentAdminBase = admin.ModelAdmin
 
-class ShipmentAdmin(admin.ModelAdmin):
+
+class ShipmentAdmin(ShipmentAdminBase):
     list_display = [
         "pk",
         "reference_id",
