@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.db.models import Q
+from sendparcel.logging import get_logger
 
 from sendparcel_django.models import CallbackRetry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def compute_next_retry_at(

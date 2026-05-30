@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.db import IntegrityError, connection, OperationalError
+from sendparcel.logging import get_logger
 
 from sendparcel_django.models import WebhookDedup
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def compute_payload_hash(payload: dict[str, Any]) -> str:

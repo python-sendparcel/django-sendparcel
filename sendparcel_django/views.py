@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import ipaddress
 import json
-import logging
 from typing import Any, cast
 
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
     CommunicationError,
     InvalidCallbackError,
@@ -20,13 +20,14 @@ from sendparcel.exceptions import (
     ShipmentNotFoundError,
 )
 from sendparcel.flow import ShipmentFlow
+from sendparcel.logging import get_logger
 from sendparcel.protocols import ShipmentRepository
 from sendparcel.types import ShipmentUpdateOutcome, ShipmentUpdateResult
 
 from sendparcel_django.dedup import DjangoWebhookDedupStore
 from sendparcel_django.registry import registry as django_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Trusted source IPs for webhook validation.
 # Providers that need IP validation should check the

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
-
 from django.core.management.base import BaseCommand
+from sendparcel.logging import get_logger
 
 from sendparcel_django.retry import DjangoCallbackRetryStore, process_due_retries
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Command(BaseCommand):
