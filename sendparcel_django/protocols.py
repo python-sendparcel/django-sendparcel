@@ -13,12 +13,19 @@ __all__ = [
 
 @dataclass
 class DjangoShipmentAdapter:
-    """Adapter exposing core shipment protocol from a Django model instance."""
+    """Adapter exposing the core :class:`~sendparcel.protocols.Shipment`
+    protocol from a Django model instance.
+
+    Only the protocol attributes and a few Django-internal helpers
+    (``pk``, ``reference_id``) are exposed.  No ``__getattr__`` —
+    every attribute is explicit so typos fail fast.
+    """
 
     wrapped: Any
 
     @property
     def pk(self) -> Any:
+        """Primary key of the underlying Django model."""
         return self.wrapped.pk
 
     @property
@@ -61,11 +68,16 @@ class DjangoShipmentAdapter:
     def tracking_number(self, value: str) -> None:
         self.wrapped.tracking_number = value
 
+    @property
+    def reference_id(self) -> str | None:
+        """Optional reference / idempotency key stored on the model."""
+        ref = getattr(self.wrapped, "reference_id", None)
+        if ref is None:
+            return None
+        return str(ref)
+
     def save(self, *args: Any, **kwargs: Any) -> Any:
         return self.wrapped.save(*args, **kwargs)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.wrapped, name)
 
 
 @runtime_checkable
