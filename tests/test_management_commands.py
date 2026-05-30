@@ -123,3 +123,33 @@ class TestCleanupDedup:
     def test_management_command_with_custom_window(self) -> None:
         """Management command accepts custom window parameter."""
         call_command("cleanup_dedup", "--window", "300")
+
+
+class TestProcessRetriesManagementCommand:
+    def test_command_has_sync_handle_method(self) -> None:
+        """Command has a sync ``handle`` method that Django can call.
+
+        The fix for the broken command: it had only
+        ``async def handle_async`` which Django never invokes.
+        Now it has ``def handle`` (the required sync entry point).
+        """
+        from sendparcel_django.management.commands.process_retries import (
+            Command,
+        )
+
+        cmd = Command()
+        assert hasattr(cmd, "handle")
+        assert callable(cmd.handle)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_command_is_invokable_via_call_command(self) -> None:
+        """``call_command('process_retries')`` invokes sync ``handle``.
+
+        Uses ``transaction=True`` so pytest-django resets the database
+        and releases locks between this test and the management
+        command's internal event-loop thread.
+        """
+        from sendparcel_django.models import CallbackRetry
+
+        CallbackRetry.objects.filter(status="pending").delete()
+        call_command("process_retries", "--skip-checks", verbosity=0)

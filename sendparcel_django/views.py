@@ -6,6 +6,7 @@ import ipaddress
 import json
 from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -98,6 +99,13 @@ async def callback(
             getattr(request, "body", b""),
         )
     except CommunicationError as exc:
+        # Store for later retry so transient failures are recovered.
+        await _store_failed_callback_for_retry(
+            shipment_id=shipment_id,
+            payload=payload,
+            headers=dict(headers),
+            exc=exc,
+        )
         return JsonResponse(
             {"detail": str(exc), "code": "communication_error"},
             status=502,
@@ -184,3 +192,41 @@ def _serialize_update(update: ShipmentUpdateResult) -> dict[str, Any]:
         ),
         "tracking_events": list(update.get("tracking_events", [])),
     }
+
+
+async def _store_failed_callback_for_retry(
+    *,
+    shipment_id: str,
+    payload: dict[str, Any],
+    headers: dict[str, Any],
+    exc: CommunicationError,
+) -> None:
+    """Persist a failed callback for later retry processing.
+
+    The provider_slug is set to ``"unknown"`` here because the
+    error may have occurred before the shipment was fully loaded.
+    The retry processor resolves the provider from the database
+    shipment record at retry time.
+    """
+    from sendparcel_django.retry import DjangoCallbackRetryStore
+
+    retry_store = DjangoCallbackRetryStore()
+    try:
+        retry_id = await retry_store.store_failed_callback(
+            shipment_id=shipment_id,
+            provider_slug="unknown",
+            payload=payload,
+            headers=headers,
+        )
+        logger.info(
+            "Stored failed callback for retry (id=%s, shipment=%s, error=%s)",
+            retry_id,
+            shipment_id,
+            exc,
+        )
+    except Exception as store_exc:
+        logger.error(
+            "Failed to store callback retry for shipment %s: %s",
+            shipment_id,
+            store_exc,
+        )

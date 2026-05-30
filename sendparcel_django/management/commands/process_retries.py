@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from django.core.management.base import BaseCommand
 from sendparcel.logging import get_logger
 
@@ -35,14 +37,28 @@ class Command(BaseCommand):
             help="Base backoff seconds for exponential retry (default: 60)",
         )
 
-    async def handle_async(self, *args, **options):
+    def handle(self, *args, **options):
+        """Synchronous entry point — bootstraps an event loop for the
+        async retry processing logic.
+
+        Django management commands are sync by convention; this pattern
+        is the standard bridge to async workflow code.
+        """
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(
+                self._handle_async(*args, **options)
+            )
+        finally:
+            loop.close()
+
+    async def _handle_async(self, *args, **options):
         retry_store = DjangoCallbackRetryStore()
-        # Import flow and repository from the app registry
         from sendparcel.flow import ShipmentFlow
         from sendparcel_django.repository import DjangoShipmentRepository
 
-        flow = ShipmentFlow()
         repository = DjangoShipmentRepository()
+        flow = ShipmentFlow(repository=repository)
 
         count = await process_due_retries(
             retry_store=retry_store,
