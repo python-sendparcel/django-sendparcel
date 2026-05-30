@@ -23,10 +23,9 @@ Tasks are imported automatically when ``sendparcel_django`` is in
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
-from django.core.exceptions import ImproperlyConfigured
 from django_tasks import task
 from sendparcel.enums import ShipmentStatus
 from sendparcel.flow import ShipmentFlow
@@ -70,28 +69,30 @@ async def _poll_single_shipment_status(
     _ensure_registry_discovered()
 
     repository = DjangoShipmentRepository()
-    flow = ShipmentFlow()
+    flow = ShipmentFlow(repository=repository)
 
     shipment = await repository.get_by_id(shipment_id)
     if shipment is None:
         logger.warning("Shipment %s not found for polling", shipment_id)
         return None
 
-    provider = registry.get(provider_slug)
-    if provider is None:
+    try:
+        provider_class = registry.get_by_slug(provider_slug)
+        provider = provider_class(shipment, config={})
+    except Exception:
         logger.error("Provider %s not registered for polling", provider_slug)
         return None
 
     for attempt in range(1, max_retries + 1):
         try:
-            result = await provider.fetch_shipment_status(shipment)
+            result = await provider.fetch_shipment_status(shipment)  # type: ignore[attr-defined]
             logger.info(
                 "Poll result for shipment %s (attempt %d): %s",
                 shipment_id,
                 attempt,
                 result,
             )
-            return result
+            return cast(dict[str, Any] | None, result)
         except Exception as exc:
             if attempt == max_retries:
                 logger.error(
@@ -145,7 +146,7 @@ async def process_due_retries_task(
     try:
         count = await process_due_retries(
             retry_store=DjangoCallbackRetryStore(),
-            flow=ShipmentFlow(),
+            flow=ShipmentFlow(repository=DjangoShipmentRepository()),
             repository=DjangoShipmentRepository(),
             max_attempts=max_attempts,
             backoff_seconds=backoff_seconds,
