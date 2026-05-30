@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import anyio
+from asgiref.sync import sync_to_async
 from django.db.models import Q
 
 from sendparcel_django.models import CallbackRetry
@@ -29,7 +29,7 @@ def compute_next_retry_at(
 class DjangoCallbackRetryStore:
     """Django ORM-backed store for callback retry records."""
 
-    def store_failed_callback(
+    async def store_failed_callback(
         self,
         shipment_id: str,
         provider_slug: str,
@@ -40,7 +40,7 @@ class DjangoCallbackRetryStore:
 
         Returns the retry record ID as a string.
         """
-        record = CallbackRetry.objects.create(
+        record = await sync_to_async(CallbackRetry.objects.create)(
             shipment_id=shipment_id,
             provider_slug=provider_slug,
             payload=payload,
@@ -48,13 +48,13 @@ class DjangoCallbackRetryStore:
         )
         return str(record.id)
 
-    def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
+    async def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
         """Return pending retries that are due for processing.
 
         Records with null next_retry_at are considered immediately due.
         """
         now = datetime.now(tz=UTC)
-        qs = (
+        qs = await sync_to_async(list)(
             CallbackRetry.objects.filter(status="pending")
             .filter(
                 Q(next_retry_at__lte=now) | Q(next_retry_at__isnull=True),
@@ -73,27 +73,29 @@ class DjangoCallbackRetryStore:
             for record in qs
         ]
 
-    def mark_succeeded(self, retry_id: str) -> None:
+    async def mark_succeeded(self, retry_id: str) -> None:
         """Mark a retry record as successfully processed."""
-        CallbackRetry.objects.filter(id=retry_id).update(
-            status="succeeded",
-        )
+        await sync_to_async(
+            CallbackRetry.objects.filter(id=retry_id).update,
+        )(status="succeeded")
 
-    def mark_failed(
+    async def mark_failed(
         self,
         retry_id: str,
         error: str,
         backoff_seconds: int = 60,
     ) -> None:
         """Increment attempts, record error, schedule next retry."""
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(
+            CallbackRetry.objects.get,
+        )(id=retry_id)
         record.attempts += 1
         record.last_error = error
         record.next_retry_at = compute_next_retry_at(
             attempt=record.attempts,
             backoff_seconds=backoff_seconds,
         )
-        record.save(
+        await sync_to_async(record.save)(
             update_fields=[
                 "attempts",
                 "last_error",
@@ -101,11 +103,11 @@ class DjangoCallbackRetryStore:
             ],
         )
 
-    def mark_exhausted(self, retry_id: str) -> None:
+    async def mark_exhausted(self, retry_id: str) -> None:
         """Mark a retry record as exhausted (no more retries)."""
-        CallbackRetry.objects.filter(id=retry_id).update(
-            status="exhausted",
-        )
+        await sync_to_async(
+            CallbackRetry.objects.filter(id=retry_id).update,
+        )(status="exhausted")
 
 
 async def _process_single_retry(
@@ -120,7 +122,7 @@ async def _process_single_retry(
     )
 
 
-def process_due_retries(
+async def process_due_retries(
     *,
     retry_store: DjangoCallbackRetryStore,
     flow: Any,
@@ -133,7 +135,7 @@ def process_due_retries(
 
     Returns the number of successfully processed retries.
     """
-    due = retry_store.get_due_retries(limit=limit)
+    due = await retry_store.get_due_retries(limit=limit)
     succeeded = 0
 
     for retry_record in due:
@@ -146,17 +148,14 @@ def process_due_retries(
                 retry_record["shipment_id"],
                 current_attempts,
             )
-            retry_store.mark_exhausted(retry_id)
+            await retry_store.mark_exhausted(retry_id)
             continue
 
         try:
-            anyio.run(
-                _process_single_retry,
-                flow,
-                repository,
-                retry_record,
+            await _process_single_retry(
+                flow, repository, retry_record
             )
-            retry_store.mark_succeeded(retry_id)
+            await retry_store.mark_succeeded(retry_id)
             succeeded += 1
         except Exception as exc:
             new_attempts = current_attempts + 1
@@ -167,14 +166,14 @@ def process_due_retries(
                     new_attempts,
                     exc,
                 )
-                retry_store.mark_failed(
+                await retry_store.mark_failed(
                     retry_id,
                     error=str(exc),
                     backoff_seconds=backoff_seconds,
                 )
-                retry_store.mark_exhausted(retry_id)
+                await retry_store.mark_exhausted(retry_id)
             else:
-                retry_store.mark_failed(
+                await retry_store.mark_failed(
                     retry_id,
                     error=str(exc),
                     backoff_seconds=backoff_seconds,

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from asgiref.sync import sync_to_async
 from sendparcel.enums import ShipmentStatus
 from sendparcel_django.models import CallbackRetry
 from sendparcel_django.retry import (
@@ -51,10 +52,10 @@ class TestComputeNextRetryAt:
 
 @pytest.mark.django_db
 class TestDjangoCallbackRetryStore:
-    def test_store_failed_callback_creates_record(self) -> None:
+    async def test_store_failed_callback_creates_record(self) -> None:
         store = DjangoCallbackRetryStore()
 
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             shipment_id="ship-1",
             provider_slug="test-provider",
             payload={"event": "picked_up"},
@@ -62,86 +63,92 @@ class TestDjangoCallbackRetryStore:
         )
 
         assert retry_id is not None
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.shipment_id == "ship-1"
         assert record.payload == {"event": "picked_up"}
         assert record.headers == {"x-token": "abc"}
         assert record.status == "pending"
         assert record.attempts == 0
 
-    def test_get_due_retries_returns_due_items_only(self) -> None:
+    async def test_get_due_retries_returns_due_items_only(self) -> None:
         store = DjangoCallbackRetryStore()
         # Due retry
-        store.store_failed_callback("ship-due", "test-provider", {}, {})
-        CallbackRetry.objects.filter(shipment_id="ship-due").update(
+        await store.store_failed_callback("ship-due", "test-provider", {}, {})
+        await sync_to_async(
+            CallbackRetry.objects.filter(shipment_id="ship-due").update,
+        )(
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
         # Future retry
-        store.store_failed_callback("ship-future", "test-provider", {}, {})
-        CallbackRetry.objects.filter(shipment_id="ship-future").update(
+        await store.store_failed_callback("ship-future", "test-provider", {}, {})
+        await sync_to_async(
+            CallbackRetry.objects.filter(shipment_id="ship-future").update,
+        )(
             next_retry_at=datetime.now(tz=UTC) + timedelta(hours=1),
         )
 
-        due = store.get_due_retries(limit=10)
+        due = await store.get_due_retries(limit=10)
 
         shipment_ids = [r["shipment_id"] for r in due]
         assert "ship-due" in shipment_ids
         assert "ship-future" not in shipment_ids
 
-    def test_get_due_retries_respects_limit(self) -> None:
+    async def test_get_due_retries_respects_limit(self) -> None:
         store = DjangoCallbackRetryStore()
         for i in range(5):
-            store.store_failed_callback(f"ship-{i}", "test-provider", {}, {})
-        CallbackRetry.objects.update(
+            await store.store_failed_callback(f"ship-{i}", "test-provider", {}, {})
+        await sync_to_async(
+            CallbackRetry.objects.update,
+        )(
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
 
-        due = store.get_due_retries(limit=3)
+        due = await store.get_due_retries(limit=3)
 
         assert len(due) == 3
 
-    def test_mark_succeeded_changes_status(self) -> None:
+    async def test_mark_succeeded_changes_status(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-1", "test-provider", {}, {}
         )
 
-        store.mark_succeeded(retry_id)
+        await store.mark_succeeded(retry_id)
 
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.status == "succeeded"
 
-    def test_mark_failed_increments_attempts(self) -> None:
+    async def test_mark_failed_increments_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-1", "test-provider", {}, {}
         )
 
-        store.mark_failed(retry_id, error="Connection refused")
+        await store.mark_failed(retry_id, error="Connection refused")
 
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.attempts == 1
         assert record.last_error == "Connection refused"
         assert record.next_retry_at is not None
         assert record.next_retry_at > datetime.now(tz=UTC)
 
-    def test_mark_exhausted_changes_status(self) -> None:
+    async def test_mark_exhausted_changes_status(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-1", "test-provider", {}, {}
         )
 
-        store.mark_exhausted(retry_id)
+        await store.mark_exhausted(retry_id)
 
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.status == "exhausted"
 
-    def test_pending_retries_with_null_next_retry_at_are_due(self) -> None:
+    async def test_pending_retries_with_null_next_retry_at_are_due(self) -> None:
         """Records with no next_retry_at (just created) should be returned."""
         store = DjangoCallbackRetryStore()
-        store.store_failed_callback("ship-null", "test-provider", {}, {})
+        await store.store_failed_callback("ship-null", "test-provider", {}, {})
 
-        due = store.get_due_retries(limit=10)
+        due = await store.get_due_retries(limit=10)
 
         shipment_ids = [r["shipment_id"] for r in due]
         assert "ship-null" in shipment_ids
@@ -149,15 +156,22 @@ class TestDjangoCallbackRetryStore:
 
 @pytest.mark.django_db
 class TestProcessDueRetries:
-    def test_processes_due_retries_calls_flow(self) -> None:
+    async def test_processes_due_retries_calls_flow(self) -> None:
+        # Clean up any existing pending retries from other tests
+        await sync_to_async(
+            CallbackRetry.objects.filter(status="pending").delete,
+        )()
+
         store = DjangoCallbackRetryStore()
-        store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-retry",
             "test-provider",
             {"event": "delivered"},
             {"x-token": "ok"},
         )
-        CallbackRetry.objects.update(
+        await sync_to_async(
+            CallbackRetry.objects.filter(id=retry_id).update,
+        )(
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
 
@@ -169,7 +183,7 @@ class TestProcessDueRetries:
         mock_repo.get_by_id.return_value = mock_shipment
         mock_flow.handle_callback.return_value = mock_shipment
 
-        processed = process_due_retries(
+        processed = await process_due_retries(
             retry_store=store,
             flow=mock_flow,
             repository=mock_repo,
@@ -177,15 +191,19 @@ class TestProcessDueRetries:
         )
 
         assert processed == 1
-        record = CallbackRetry.objects.get(shipment_id="ship-retry")
+        record = await sync_to_async(CallbackRetry.objects.get)(
+            shipment_id="ship-retry"
+        )
         assert record.status == "succeeded"
 
-    def test_marks_exhausted_after_max_attempts(self) -> None:
+    async def test_marks_exhausted_after_max_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-exhaust", "test-provider", {}, {}
         )
-        CallbackRetry.objects.filter(id=retry_id).update(
+        await sync_to_async(
+            CallbackRetry.objects.filter(id=retry_id).update,
+        )(
             attempts=4,
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
@@ -194,7 +212,7 @@ class TestProcessDueRetries:
         mock_repo = AsyncMock()
         mock_repo.get_by_id.side_effect = Exception("not found")
 
-        processed = process_due_retries(
+        processed = await process_due_retries(
             retry_store=store,
             flow=mock_flow,
             repository=mock_repo,
@@ -202,15 +220,17 @@ class TestProcessDueRetries:
         )
 
         assert processed == 0
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.status == "exhausted"
 
-    def test_marks_failed_on_error_within_attempts(self) -> None:
+    async def test_marks_failed_on_error_within_attempts(self) -> None:
         store = DjangoCallbackRetryStore()
-        retry_id = store.store_failed_callback(
+        retry_id = await store.store_failed_callback(
             "ship-fail", "test-provider", {}, {}
         )
-        CallbackRetry.objects.filter(id=retry_id).update(
+        await sync_to_async(
+            CallbackRetry.objects.filter(id=retry_id).update,
+        )(
             attempts=1,
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
@@ -219,7 +239,7 @@ class TestProcessDueRetries:
         mock_repo = AsyncMock()
         mock_repo.get_by_id.side_effect = Exception("temporary error")
 
-        processed = process_due_retries(
+        processed = await process_due_retries(
             retry_store=store,
             flow=mock_flow,
             repository=mock_repo,
@@ -227,7 +247,7 @@ class TestProcessDueRetries:
         )
 
         assert processed == 0
-        record = CallbackRetry.objects.get(id=retry_id)
+        record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.status == "pending"
         assert record.attempts == 2
         assert record.last_error is not None
