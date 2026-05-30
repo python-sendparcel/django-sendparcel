@@ -59,10 +59,26 @@ class DjangoShipmentRepository:
         return self._wrap(model_instance)
 
     async def update_status(
-        self, shipment_id: str, status: str, **fields: Any
+        self,
+        shipment_id: str,
+        status: str,
+        *,
+        for_update: bool = True,
+        **fields: Any,
     ) -> DjangoShipmentAdapter:
-        """Update the status (and optional extra fields) of a shipment."""
-        shipment = await self.get_by_id(shipment_id)
+        """Update the status (and optional extra fields) of a shipment.
+
+        Args:
+            shipment_id: Primary key of the shipment.
+            status: New status value.
+            for_update: If True (default), use ``select_for_update()``
+                to lock the row for concurrent-write safety.
+            **fields: Additional fields to update.
+
+        Returns:
+            The updated shipment adapter.
+        """
+        shipment = await self.get_by_id(shipment_id, for_update=for_update)
         shipment.status = status
         for key, value in fields.items():
             setattr(shipment, key, value)
