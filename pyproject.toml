@@ -11,6 +11,7 @@ dependencies = [
   "python-sendparcel>=0.1.1",
   "anyio>=4.0",
   "swapper>=1.4",
+  "django-tasks>=0.12.0",
 ]
 keywords = ["django", "shipping", "parcel", "delivery", "sendparcel"]
 classifiers = [

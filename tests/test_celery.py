@@ -1,67 +1,39 @@
-"""Tests for Celery integration tasks."""
+"""Tests for background tasks (django-tasks)."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from asgiref.sync import sync_to_async
 from sendparcel.enums import ShipmentStatus
 from sendparcel_django.models import CallbackRetry
+from sendparcel_django.retry import process_due_retries
 
 
-class TestCeleryAppImport:
-    """Tests for Celery app initialization."""
+class TestTaskImports:
+    """Tests for task module imports."""
 
-    def test_celery_module_imports_without_celery_installed(self) -> None:
-        """The module should import even when Celery is not installed."""
-        with patch.dict("sys.modules", {"celery": None}):
-            # Re-import the module to test graceful degradation
-            import importlib
-
-            import sendparcel_django.celery as celery_module
-
-            importlib.reload(celery_module)
-            assert celery_module.app is None
-
-    def test_get_celery_app_raises_when_not_installed(self) -> None:
-        """_get_celery_app raises RuntimeError when Celery is not installed."""
-        with patch.dict("sys.modules", {"celery": None}):
-            import importlib
-
-            import sendparcel_django.celery as celery_module
-
-            importlib.reload(celery_module)
-            with pytest.raises(RuntimeError, match="Celery is not installed"):
-                celery_module._get_celery_app()
-
-    def test_poll_sync_available_without_celery(self) -> None:
-        """_poll_single_shipment_status_sync is always available."""
-        import importlib
-
+    def test_tasks_module_imports(self) -> None:
+        """The module should import successfully."""
         import sendparcel_django.celery as celery_module
 
-        importlib.reload(celery_module)
-        assert hasattr(celery_module, "_poll_single_shipment_status_sync")
-        assert callable(celery_module._poll_single_shipment_status_sync)
+        assert hasattr(celery_module, "process_due_retries_task")
+        assert hasattr(celery_module, "cleanup_dedup_task")
+        assert hasattr(celery_module, "poll_shipment_status_task")
+        assert hasattr(celery_module, "poll_all_pending_statuses_task")
+        assert hasattr(celery_module, "_poll_single_shipment_status")
 
-    def test_tasks_not_defined_without_celery(self) -> None:
-        """Celery tasks are not defined when Celery is not installed."""
-        with patch.dict("sys.modules", {"celery": None}):
-            import importlib
+    def test_poll_async_available(self) -> None:
+        """_poll_single_shipment_status is always available."""
+        import sendparcel_django.celery as celery_module
 
-            import sendparcel_django.celery as celery_module
-
-            importlib.reload(celery_module)
-            assert not hasattr(celery_module, "process_due_retries_task")
-            assert not hasattr(celery_module, "cleanup_dedup_task")
-            assert not hasattr(celery_module, "poll_shipment_status_task")
-            assert not hasattr(celery_module, "poll_all_pending_statuses_task")
+        assert hasattr(celery_module, "_poll_single_shipment_status")
+        assert callable(celery_module._poll_single_shipment_status)
 
 
-class TestPollShipmentStatusSync:
-    """Tests for the synchronous polling wrapper."""
+class TestPollShipmentStatusAsync:
+    """Tests for the async polling function."""
 
     @pytest.mark.django_db
     async def test_polls_shipment_and_returns_result(self) -> None:
@@ -97,18 +69,12 @@ class TestPollShipmentStatusSync:
                 "sendparcel_django.celery.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
-            patch(
-                "anyio.run",
-                side_effect=lambda f: f(),
-            ),
         ):
             from sendparcel_django.celery import (
-                _poll_single_shipment_status_sync,
+                _poll_single_shipment_status,
             )
 
-            # anyio.run is mocked to just call the function directly
-            # The function returns a coroutine, which we need to await
-            result = await _poll_single_shipment_status_sync(
+            result = await _poll_single_shipment_status(
                 "ship-1", "test-provider", max_retries=1, poll_interval=10,
             )
 
@@ -132,13 +98,12 @@ class TestPollShipmentStatusSync:
                 "sendparcel_django.celery.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
-            patch("anyio.run", side_effect=lambda f: f()),
         ):
             from sendparcel_django.celery import (
-                _poll_single_shipment_status_sync,
+                _poll_single_shipment_status,
             )
 
-            result = await _poll_single_shipment_status_sync(
+            result = await _poll_single_shipment_status(
                 "ship-missing", "test-provider", max_retries=1, poll_interval=10,
             )
 
@@ -175,13 +140,12 @@ class TestPollShipmentStatusSync:
                 "sendparcel_django.celery.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
-            patch("anyio.run", side_effect=lambda f: f()),
         ):
             from sendparcel_django.celery import (
-                _poll_single_shipment_status_sync,
+                _poll_single_shipment_status,
             )
 
-            result = await _poll_single_shipment_status_sync(
+            result = await _poll_single_shipment_status(
                 "ship-1",
                 "test-provider",
                 max_retries=3,
@@ -219,13 +183,12 @@ class TestPollShipmentStatusSync:
                 "sendparcel_django.celery.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
-            patch("anyio.run", side_effect=lambda f: f()),
         ):
             from sendparcel_django.celery import (
-                _poll_single_shipment_status_sync,
+                _poll_single_shipment_status,
             )
 
-            result = await _poll_single_shipment_status_sync(
+            result = await _poll_single_shipment_status(
                 "ship-1",
                 "test-provider",
                 max_retries=2,
