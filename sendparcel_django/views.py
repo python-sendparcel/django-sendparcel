@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import logging
 from typing import Any, cast
 
-import anyio
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -22,19 +23,33 @@ from sendparcel.flow import ShipmentFlow
 from sendparcel.protocols import ShipmentRepository
 from sendparcel.types import ShipmentUpdateOutcome, ShipmentUpdateResult
 
+from sendparcel_django.dedup import DjangoWebhookDedupStore
 from sendparcel_django.registry import registry as django_registry
+
+logger = logging.getLogger(__name__)
+
+# Trusted source IPs for webhook validation.
+# Providers that need IP validation should check the
+# "x-validated-source-ip" header set here from
+# request.META['REMOTE_ADDR'] (the actual TCP connection IP).
+# This prevents spoofing via x-forwarded-for which is faked by any client.
+_WEBHOOK_TRUSTED_IPS: list[ipaddress.IPv4Network] = []
 
 
 @csrf_exempt
 @require_POST
-def callback(
+async def callback(
     request: HttpRequest,
     shipment_id: str,
     *,
     repository: ShipmentRepository | None = None,
     config: dict[str, Any] | None = None,
 ) -> JsonResponse:
-    """Handle provider callbacks through the core shipment flow."""
+    """Handle provider callbacks through the core shipment flow.
+
+    Async view for Django 5.2+ ASGI. Shares the server's event loop
+    instead of spawning a new one per request (which ``anyio.run()`` did).
+    """
     if repository is None:
         from sendparcel_django.repository import DjangoShipmentRepository
 
@@ -52,6 +67,20 @@ def callback(
             status=400,
         )
 
+    # Deduplication check: skip processing if this payload was already
+    # handled within the configured window.  Returns 200 OK immediately
+    # so the provider does not retry.
+    dedup_store = DjangoWebhookDedupStore()
+    if dedup_store.is_duplicate(payload, shipment_id):
+        logger.info("Duplicate webhook for shipment %s, skipping", shipment_id)
+        return JsonResponse({"status": "accepted"}, status=200)
+
+    # Validate source IP from the actual TCP connection, not from spoofable
+    # headers. Pass the validated IP to the provider via a special header.
+    source_ip = request.META.get("REMOTE_ADDR", "")
+    headers: dict[str, str] = dict(getattr(request, "headers", {}))
+    headers["x-validated-source-ip"] = source_ip
+
     flow = ShipmentFlow(
         repository=repository,
         config=config or {},
@@ -59,13 +88,12 @@ def callback(
     )
 
     try:
-        outcome = anyio.run(
-            _handle_callback,
+        outcome = await _handle_callback(
             flow,
             repository,
             shipment_id,
             payload,
-            dict(getattr(request, "headers", {})),
+            headers,
             getattr(request, "body", b""),
         )
     except CommunicationError as exc:
