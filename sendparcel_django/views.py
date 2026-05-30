@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 from typing import Any, cast
 
@@ -29,14 +28,6 @@ from sendparcel_django.dedup import DjangoWebhookDedupStore
 from sendparcel_django.registry import registry as django_registry
 
 logger = get_logger(__name__)
-
-# Trusted source IPs for webhook validation.
-# Providers that need IP validation should check the
-# "x-validated-source-ip" header set here from
-# request.META['REMOTE_ADDR'] (the actual TCP connection IP).
-# This prevents spoofing via x-forwarded-for which is faked by any client.
-_WEBHOOK_TRUSTED_IPS: list[ipaddress.IPv4Network] = []
-
 
 @csrf_exempt
 @require_POST
@@ -78,10 +69,9 @@ async def callback(
         return JsonResponse({"status": "accepted"}, status=200)
 
     # Validate source IP from the actual TCP connection, not from spoofable
-    # headers. Pass the validated IP to the provider via a special header.
+    # headers. Pass the validated IP directly to the provider.
     source_ip = request.META.get("REMOTE_ADDR", "")
     headers: dict[str, str] = dict(getattr(request, "headers", {}))
-    headers["x-validated-source-ip"] = source_ip
 
     flow = ShipmentFlow(
         repository=repository,
@@ -97,6 +87,7 @@ async def callback(
             payload,
             headers,
             getattr(request, "body", b""),
+            source_ip=source_ip,
         )
     except CommunicationError as exc:
         # Store for later retry so transient failures are recovered.
@@ -158,6 +149,7 @@ async def _handle_callback(
     payload: dict[str, Any],
     headers: dict[str, Any],
     raw_body: bytes,
+    **kwargs: Any,
 ) -> ShipmentUpdateOutcome:
     shipment = await repository.get_by_id(shipment_id)
     return await flow.handle_callback(
@@ -165,6 +157,7 @@ async def _handle_callback(
         payload,
         headers,
         raw_body=raw_body,
+        **kwargs,
     )
 
 
