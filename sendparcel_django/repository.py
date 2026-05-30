@@ -75,6 +75,23 @@ class DjangoShipmentRepository:
         qs = model._default_manager.filter(pk=shipment_id)
         await sync_to_async(qs.delete)()
 
+    async def find_by_reference(
+        self, provider: str, reference_id: str
+    ) -> DjangoShipmentAdapter | None:
+        """Find a shipment by provider slug and reference_id.
+
+        Returns None if no matching shipment is found.
+        """
+        model = self._get_model()
+        obj = await sync_to_async(
+            model._default_manager.filter(
+                provider=provider, reference_id=reference_id
+            ).first
+        )()
+        if obj is None:
+            return None
+        return self._wrap(obj)
+
     def _unwrap_shipment(self, shipment: Any) -> models.Model:
         """Unwrap a shipment from its adapter if needed."""
         if isinstance(shipment, DjangoShipmentAdapter):

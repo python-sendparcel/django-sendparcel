@@ -8,6 +8,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db import IntegrityError, connection, OperationalError
 
 from sendparcel_django.models import WebhookDedup
@@ -41,8 +42,8 @@ class DjangoWebhookDedupStore:
         """
         self.window_seconds = window_seconds
 
-    def _table_exists(self) -> bool:
-        """Check if the WebhookDedup table exists in the database."""
+    def _table_exists_sync(self) -> bool:
+        """Synchronous check if the WebhookDedup table exists."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -50,7 +51,7 @@ class DjangoWebhookDedupStore:
             )
             return cursor.fetchone() is not None
 
-    def is_duplicate(
+    async def is_duplicate(
         self,
         payload: dict[str, Any],
         shipment_id: str,
@@ -68,7 +69,10 @@ class DjangoWebhookDedupStore:
         payload_hash = compute_payload_hash(payload)
 
         try:
-            WebhookDedup.objects.create(
+            await sync_to_async(
+                WebhookDedup.objects.create,
+                thread_sensitive=True,
+            )(
                 payload_hash=payload_hash,
                 shipment_id=shipment_id,
                 provider_slug=provider_slug,
@@ -82,16 +86,19 @@ class DjangoWebhookDedupStore:
 
         return False
 
-    def cleanup_old_entries(self) -> int:
+    async def cleanup_old_entries(self) -> int:
         """Remove dedup records older than the window.
 
         Returns the number of records deleted.
         """
-        if not self._table_exists():
+        exists = await sync_to_async(self._table_exists_sync)()
+        if not exists:
             return 0
 
         cutoff = datetime.now(tz=UTC) - timedelta(seconds=self.window_seconds)
-        deleted, _ = WebhookDedup.objects.filter(
-            created_at__lt=cutoff
-        ).delete()
+        deleted, _ = await sync_to_async(
+            lambda: WebhookDedup.objects.filter(
+                created_at__lt=cutoff
+            ).delete()
+        )()
         return deleted

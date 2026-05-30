@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, cast
 
+import pytest
 from django.http import HttpRequest, HttpResponse
 from sendparcel.exceptions import (
     CommunicationError,
@@ -157,3 +159,70 @@ class TestSendParcelExceptionMiddleware:
         body = _parse_json(response)
         assert body["code"] == "provider_capability_error"
         assert "label creation unsupported" in body["detail"]
+
+
+class TestSendParcelExceptionMiddlewareASGI:
+    async def test_acall_sync_response(self) -> None:
+        """__acall__ works with sync get_response returning HttpResponse."""
+
+        def get_response(request: HttpRequest) -> HttpResponse:
+            return HttpResponse("ok", status=200)
+
+        middleware = SendParcelExceptionMiddleware(get_response)
+        request = HttpRequest()
+        response = await middleware.__acall__(request)
+
+        assert response.status_code == 200
+        assert response.content == b"ok"
+
+    async def test_acall_async_view(self) -> None:
+        """__acall__ awaits async get_response (async view)."""
+
+        async def get_response(request: HttpRequest) -> HttpResponse:
+            return HttpResponse("async view", status=201)
+
+        middleware = SendParcelExceptionMiddleware(get_response)
+        request = HttpRequest()
+        response = await middleware.__acall__(request)
+
+        assert response.status_code == 201
+        assert response.content == b"async view"
+
+    async def test_acall_catches_sendparcel_exception(self) -> None:
+        """__acall__ catches SendParcelException from async view."""
+
+        async def get_response(request: HttpRequest) -> HttpResponse:
+            raise CommunicationError("Provider timeout")
+
+        middleware = SendParcelExceptionMiddleware(get_response)
+        request = HttpRequest()
+        response = await middleware.__acall__(request)
+
+        assert response.status_code == 502
+        body = _parse_json(response)
+        assert body["code"] == "communication_error"
+
+    async def test_acall_catches_async_shipment_not_found(self) -> None:
+        """__acall__ catches ShipmentNotFoundError from async view."""
+
+        async def get_response(request: HttpRequest) -> HttpResponse:
+            raise ShipmentNotFoundError("abc-123")
+
+        middleware = SendParcelExceptionMiddleware(get_response)
+        request = HttpRequest()
+        response = await middleware.__acall__(request)
+
+        assert response.status_code == 404
+        body = _parse_json(response)
+        assert body["code"] == "shipment_not_found"
+
+    async def test_acall_non_sendparcel_exception_passes_through(self) -> None:
+        """__acall__ re-raises non-SendParcel exceptions."""
+
+        async def get_response(request: HttpRequest) -> HttpResponse:
+            raise ValueError("unrelated error")
+
+        middleware = SendParcelExceptionMiddleware(get_response)
+        request = HttpRequest()
+        with pytest.raises(ValueError, match="unrelated error"):
+            await middleware.__acall__(request)

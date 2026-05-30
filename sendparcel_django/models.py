@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import swapper
 from django.core.validators import MinValueValidator
@@ -70,3 +70,30 @@ class CallbackRetry(models.Model):
 
     def __str__(self) -> str:
         return f"CallbackRetry({self.shipment_id}, {self.status})"
+
+
+class WebhookDedup(models.Model):
+    """Deduplicates webhook callbacks by payload hash.
+
+    Stores a SHA-256 hash of the webhook payload and the timestamp of
+    first receipt.  Old entries are cleaned up by a management command
+    or periodic task.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payload_hash = models.CharField(max_length=64, db_index=True)
+    shipment_id = models.CharField(max_length=128, db_index=True)
+    provider_slug = models.CharField(max_length=64, default="unknown")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["created_at"]
+        constraints: ClassVar[list[Any]] = [
+            models.UniqueConstraint(
+                fields=["shipment_id", "payload_hash"],
+                name="%(app_label)s_%(class)s_shipment_hash_unique",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"WebhookDedup({self.payload_hash}, {self.shipment_id})"

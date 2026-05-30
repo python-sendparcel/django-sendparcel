@@ -71,7 +71,7 @@ async def callback(
     # handled within the configured window.  Returns 200 OK immediately
     # so the provider does not retry.
     dedup_store = DjangoWebhookDedupStore()
-    if dedup_store.is_duplicate(payload, shipment_id):
+    if await dedup_store.is_duplicate(payload, shipment_id):
         logger.info("Duplicate webhook for shipment %s, skipping", shipment_id)
         return JsonResponse({"status": "accepted"}, status=200)
 
