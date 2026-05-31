@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 from sendparcel.logging import get_logger
 
-from sendparcel_django.retry import DjangoCallbackRetryStore, process_due_retries
+from sendparcel_django.retry import (
+    DjangoCallbackRetryStore,
+    process_due_retries,
+)
 
 logger = get_logger(__name__)
 
@@ -17,7 +21,7 @@ class Command(BaseCommand):
 
     help = "Process pending webhook callback retries."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             "--limit",
             type=int,
@@ -28,7 +32,10 @@ class Command(BaseCommand):
             "--max-attempts",
             type=int,
             default=5,
-            help="Maximum retry attempts before marking as exhausted (default: 5)",
+            help=(
+                "Maximum retry attempts before marking as exhausted "
+                "(default: 5)"
+            ),
         )
         parser.add_argument(
             "--backoff",
@@ -37,7 +44,7 @@ class Command(BaseCommand):
             help="Base backoff seconds for exponential retry (default: 60)",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         """Synchronous entry point — bootstraps an event loop for the
         async retry processing logic.
 
@@ -52,9 +59,10 @@ class Command(BaseCommand):
         finally:
             loop.close()
 
-    async def _handle_async(self, *args, **options):
+    async def _handle_async(self, *args: Any, **options: Any) -> None:
         retry_store = DjangoCallbackRetryStore()
         from sendparcel.flow import ShipmentFlow
+
         from sendparcel_django.repository import DjangoShipmentRepository
 
         repository = DjangoShipmentRepository()

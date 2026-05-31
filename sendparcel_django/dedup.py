@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.db import IntegrityError, connection, OperationalError
+from django.db import IntegrityError, OperationalError, connection
 from sendparcel.logging import get_logger
 
 from sendparcel_django.models import WebhookDedup

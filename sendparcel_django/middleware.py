@@ -31,7 +31,7 @@ _EXCEPTION_MAP: list[tuple[type[SendParcelException], int, str]] = [
 
 def _exception_to_response(
     exception: Exception,
-) -> HttpResponse | None:
+) -> HttpResponse:
     """Convert a sendparcel exception to an HTTP response."""
     for exc_type, status_code, code in _EXCEPTION_MAP:
         if isinstance(exception, exc_type):
@@ -39,7 +39,10 @@ def _exception_to_response(
                 {"detail": str(exception), "code": code},
                 status=status_code,
             )
-    return None
+    return JsonResponse(
+        {"detail": str(exception)},
+        status=500,
+    )
 
 
 class SendParcelExceptionMiddleware:

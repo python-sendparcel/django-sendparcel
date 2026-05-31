@@ -87,14 +87,14 @@ class TestSendParcelExceptionMiddleware:
         body = _parse_json(response)
         assert body["code"] == "sendparcel_error"
 
-    def test_non_sendparcel_exception_returns_none(self) -> None:
+    def test_non_sendparcel_exception_returns_500(self) -> None:
         middleware = _make_middleware()
         request = HttpRequest()
         exc = ValueError("unrelated error")
 
         response = middleware.process_exception(request, exc)
 
-        assert response is None
+        assert response.status_code == 500
 
     def test_normal_response_passes_through(self) -> None:
         expected = HttpResponse("hello", status=200)

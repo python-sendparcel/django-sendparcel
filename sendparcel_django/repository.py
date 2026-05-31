@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import swapper
 from asgiref.sync import sync_to_async
-from django.db import models, transaction
+from django.db import models
 from sendparcel.exceptions import ShipmentNotFoundError
 
 from sendparcel_django.protocols import DjangoShipmentAdapter

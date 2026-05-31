@@ -54,13 +54,12 @@ class DjangoCallbackRetryStore:
         Records with null next_retry_at are considered immediately due.
         """
         now = datetime.now(tz=UTC)
-        qs = await sync_to_async(list)(
-            CallbackRetry.objects.filter(status="pending")
-            .filter(
-                Q(next_retry_at__lte=now) | Q(next_retry_at__isnull=True),
-            )
-            .order_by("created_at")[:limit]
-        )
+        qs_queryset = CallbackRetry.objects.filter(status="pending").filter(
+            Q(next_retry_at__lte=now) | Q(next_retry_at__isnull=True),
+        ).order_by("created_at")[:limit]
+        qs: list[CallbackRetry] = await sync_to_async(
+            lambda: list(qs_queryset)
+        )()
 
         return [
             {

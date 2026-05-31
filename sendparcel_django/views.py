@@ -5,11 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-from asgiref.sync import sync_to_async
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
     CommunicationError,
     InvalidCallbackError,

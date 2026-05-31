@@ -30,8 +30,7 @@ Response format::
 
 from __future__ import annotations
 
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from django.http import HttpRequest, JsonResponse
@@ -68,10 +67,11 @@ class HealthCheckView:
                         continue
                     # Check nested providers
                     for provider_status in check.values():
-                        if isinstance(provider_status, dict):
-                            if provider_status.get("status") != "ok":
-                                all_ok = False
-                                break
+                        if isinstance(provider_status, dict) and (
+                            provider_status.get("status") != "ok"
+                        ):
+                            all_ok = False
+                            break
                 elif check.get("status") != "ok":
                     all_ok = False
                     break
@@ -83,7 +83,7 @@ class HealthCheckView:
         return JsonResponse(
             {
                 "status": "ok" if all_ok else "degraded",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "checks": checks,
             },
             status=status_code,
@@ -121,7 +121,7 @@ class HealthCheckView:
 
         providers: dict[str, Any] = {}
         provider_slugs = self.providers or [
-            slug for slug in registry._providers.keys()
+            slug for slug in registry._providers
         ]
 
         for slug in provider_slugs:
@@ -138,7 +138,9 @@ class HealthCheckView:
                     # No health check method — assume ok
                     providers[slug] = {"status": "ok"}
             except Exception as exc:
-                logger.warning("Provider health check failed for %s: %s", slug, exc)
+                logger.warning(
+                    "Provider health check failed for %s: %s", slug, exc
+                )
                 providers[slug] = {"status": "error", "detail": str(exc)}
 
         return providers
