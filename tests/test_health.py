@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 from django.test import Client
 from django.urls import reverse
-from sendparcel.registry import registry as django_registry
 from sendparcel.provider import BaseProvider
 from sendparcel.types import AddressInfo, ParcelInfo, ShipmentCreateResult
+from sendparcel_django.registry import registry as django_registry
 
 
 class MockProvider(BaseProvider):

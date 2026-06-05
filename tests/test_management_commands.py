@@ -8,10 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from asgiref.sync import sync_to_async
 from django.core.management import call_command
-
-from sendparcel_django.dedup import DjangoWebhookDedupStore
-from sendparcel_django.models import CallbackRetry, WebhookDedup
-from sendparcel_django.retry import DjangoCallbackRetryStore, process_due_retries
+from sendparcel_django.models import CallbackRetry
+from sendparcel_django.retry import (
+    DjangoCallbackRetryStore,
+    process_due_retries,
+)
 
 
 class TestProcessRetries:

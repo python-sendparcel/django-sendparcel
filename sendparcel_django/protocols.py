@@ -30,11 +30,8 @@ class DjangoShipmentAdapter:
 
     @property
     def id(self) -> str:
+        """Primary key of the underlying Django model (read-only)."""
         return str(self.wrapped.id)
-
-    @id.setter
-    def id(self, value: str) -> None:
-        self.wrapped.id = value
 
     @property
     def status(self) -> str:

@@ -23,6 +23,7 @@ def test_all_exports_listed_in_dunder_all() -> None:
         "ProviderChoiceForm",
         "Shipment",
         "ShipmentModelMixin",
+        "__version__",
         "registry",
     }
     assert set(sendparcel_django.__all__) == expected

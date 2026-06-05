@@ -5,7 +5,8 @@ Supports both WSGI (sync) and ASGI (async) request/response cycles.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Awaitable, Callable
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from sendparcel.exceptions import (
@@ -54,7 +55,10 @@ class SendParcelExceptionMiddleware:
 
     def __init__(
         self,
-        get_response: Callable[[HttpRequest], HttpResponse],
+        get_response: (
+            Callable[[HttpRequest], HttpResponse]
+            | Callable[[HttpRequest], Awaitable[HttpResponse]]
+        ),
     ) -> None:
         self.get_response = get_response
 
@@ -62,7 +66,7 @@ class SendParcelExceptionMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
-        return response
+        return response  # type: ignore[return-value]
 
     def process_exception(
         self,
@@ -76,8 +80,10 @@ class SendParcelExceptionMiddleware:
     async def __acall__(self, request: HttpRequest) -> HttpResponse:
         try:
             response = self.get_response(request)
-            # If get_response returns a coroutine (async view), await it
-            if hasattr(response, "__await__"):
+            # If get_response returns a coroutine (async view), await it.
+            # Use asyncio.iscoroutine() for reliable detection instead of
+            # hasattr("__await__") which may miss some ASGI cases.
+            if asyncio.iscoroutine(response):
                 response = await response
             return response
         except SendParcelException as exc:

@@ -15,6 +15,12 @@ class SendparcelSettings:
     PROVIDER_SETTINGS: dict[str, Any]
     DEFAULT_PROVIDER: str
     SHIPMENT_MODEL: str
+    WEBHOOK_DEDUP_WINDOW: int = 900
+    WEBHOOK_MAX_PAYLOAD_SIZE: int = 65536  # 64 KB
+    CALLBACK_RETRY_MAX_ATTEMPTS: int = 5
+    CALLBACK_RETRY_BACKOFF_BASE: int = 60
+    CALLBACK_RETRY_BACKOFF_JITTER: float = 0.1  # 10% jitter
+    WEBHOOK_CONTENT_TYPE: str = "application/json"
 
 
 def get_settings() -> SendparcelSettings:
@@ -28,7 +34,27 @@ def get_settings() -> SendparcelSettings:
         DEFAULT_PROVIDER=getattr(settings, "SENDPARCEL_DEFAULT_PROVIDER", ""),
         SHIPMENT_MODEL=getattr(
             settings,
-            "SENDPARCEL_SHIPMENT_MODEL",
+            "SENDPARCEL_DJANGO_SHIPMENT_MODEL",
             "sendparcel_django.Shipment",
+        ),
+        WEBHOOK_DEDUP_WINDOW=getattr(
+            settings, "SENDPARCEL_WEBHOOK_DEDUP_WINDOW", 900
+        ),
+        WEBHOOK_MAX_PAYLOAD_SIZE=getattr(
+            settings, "SENDPARCEL_WEBHOOK_MAX_PAYLOAD_SIZE", 65536
+        ),
+        CALLBACK_RETRY_MAX_ATTEMPTS=getattr(
+            settings, "SENDPARCEL_CALLBACK_RETRY_MAX_ATTEMPTS", 5
+        ),
+        CALLBACK_RETRY_BACKOFF_BASE=getattr(
+            settings, "SENDPARCEL_CALLBACK_RETRY_BACKOFF_BASE", 60
+        ),
+        CALLBACK_RETRY_BACKOFF_JITTER=getattr(
+            settings, "SENDPARCEL_CALLBACK_RETRY_BACKOFF_JITTER", 0.1
+        ),
+        WEBHOOK_CONTENT_TYPE=getattr(
+            settings,
+            "SENDPARCEL_WEBHOOK_CONTENT_TYPE",
+            "application/json",
         ),
     )

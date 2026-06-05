@@ -5,10 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from asgiref.sync import sync_to_async
-from sendparcel.enums import ShipmentStatus
-from sendparcel_django.models import CallbackRetry
-from sendparcel_django.retry import process_due_retries
 
 
 class TestTaskImports:
@@ -35,59 +31,25 @@ class TestTaskImports:
 class TestPollShipmentStatusAsync:
     """Tests for the async polling function."""
 
-    def _make_mock_provider_class(
-        self,
-        fetch_result: dict[str, Any] | Exception,
-    ) -> type[AsyncMock]:
-        """Create a mock provider class that returns fetch_result."""
-        mock_instance = AsyncMock()
-        if isinstance(fetch_result, Exception):
-            mock_instance.fetch_shipment_status = AsyncMock(
-                side_effect=fetch_result,
-            )
-        else:
-            mock_instance.fetch_shipment_status = AsyncMock(
-                return_value=fetch_result,
-            )
-
-        mock_class = MagicMock(return_value=mock_instance)
-        # Make the class callable return the instance with proper awaitable
-        mock_class.__call__ = MagicMock(return_value=mock_instance)
-        return mock_class
-
     @pytest.mark.django_db
     async def test_polls_shipment_and_returns_result(self) -> None:
-        """Polling a valid shipment returns the provider's status result."""
-        # Clean up any existing pending retries from other tests
-        await sync_to_async(
-            CallbackRetry.objects.filter(status="pending").delete,
-        )()
-
-        mock_provider_instance = AsyncMock()
-        mock_provider_instance.fetch_shipment_status = AsyncMock(
-            return_value={"status": "in_transit"},
-        )
-
-        mock_provider_class = MagicMock(return_value=mock_provider_instance)
-
+        """Polling a valid shipment returns the flow's status update."""
         mock_repo = MagicMock()
         mock_shipment = MagicMock()
         mock_shipment.id = "ship-1"
-        mock_shipment.provider = "test-provider"
         mock_repo.get_by_id = AsyncMock(return_value=mock_shipment)
 
-        mock_registry = MagicMock()
-        mock_registry.get_by_slug = MagicMock(
-            return_value=mock_provider_class,
+        mock_flow = AsyncMock()
+        mock_outcome = MagicMock()
+        mock_outcome.update = {"status": "in_transit"}
+        mock_flow.fetch_and_update_status = AsyncMock(
+            return_value=mock_outcome,
         )
 
         with (
             patch(
-                "sendparcel_django.celery.registry", mock_registry
-            ),
-            patch(
                 "sendparcel_django.celery.ShipmentFlow",
-                return_value=AsyncMock(),
+                return_value=mock_flow,
             ),
             patch(
                 "sendparcel_django.celery.DjangoShipmentRepository",
@@ -99,11 +61,14 @@ class TestPollShipmentStatusAsync:
             )
 
             result = await _poll_single_shipment_status(
-                "ship-1", "test-provider", max_retries=1, poll_interval=10,
+                "ship-1",
+                "test-provider",
+                max_retries=1,
+                poll_interval=10,
             )
 
         assert result == {"status": "in_transit"}
-        mock_provider_instance.fetch_shipment_status.assert_awaited_once_with(
+        mock_flow.fetch_and_update_status.assert_awaited_once_with(
             mock_shipment,
         )
 
@@ -128,41 +93,37 @@ class TestPollShipmentStatusAsync:
             )
 
             result = await _poll_single_shipment_status(
-                "ship-missing", "test-provider", max_retries=1, poll_interval=10,
+                "ship-missing",
+                "test-provider",
+                max_retries=1,
+                poll_interval=10,  # noqa: E501
             )
 
         assert result is None
 
     @pytest.mark.django_db
     async def test_poll_retries_on_failure(self) -> None:
-        """Polling retries on transient failure and returns result on success."""
-        mock_provider_instance = AsyncMock()
-        mock_provider_instance.fetch_shipment_status = AsyncMock(
-            side_effect=[
-                Exception("temp fail"),
-                {"status": "delivered"},
-            ],
-        )
-
-        mock_provider_class = MagicMock(return_value=mock_provider_instance)
-
+        """Polling retries on transient failure, returns result on
+        success."""
         mock_repo = MagicMock()
         mock_shipment = MagicMock()
         mock_shipment.id = "ship-1"
         mock_repo.get_by_id = AsyncMock(return_value=mock_shipment)
 
-        mock_registry = MagicMock()
-        mock_registry.get_by_slug = MagicMock(
-            return_value=mock_provider_class,
+        mock_flow = AsyncMock()
+        mock_outcome_ok = MagicMock()
+        mock_outcome_ok.update = {"status": "delivered"}
+        mock_flow.fetch_and_update_status = AsyncMock(
+            side_effect=[
+                Exception("temp fail"),
+                mock_outcome_ok,
+            ],
         )
 
         with (
             patch(
-                "sendparcel_django.celery.registry", mock_registry
-            ),
-            patch(
                 "sendparcel_django.celery.ShipmentFlow",
-                return_value=AsyncMock(),
+                return_value=mock_flow,
             ),
             patch(
                 "sendparcel_django.celery.DjangoShipmentRepository",
@@ -181,35 +142,25 @@ class TestPollShipmentStatusAsync:
             )
 
         assert result == {"status": "delivered"}
-        assert mock_provider_instance.fetch_shipment_status.call_count == 2
+        assert mock_flow.fetch_and_update_status.call_count == 2
 
     @pytest.mark.django_db
     async def test_poll_returns_none_after_max_retries(self) -> None:
         """Polling returns None after exhausting all retries."""
-        mock_provider_instance = AsyncMock()
-        mock_provider_instance.fetch_shipment_status = AsyncMock(
-            side_effect=Exception("persistent fail"),
-        )
-
-        mock_provider_class = MagicMock(return_value=mock_provider_instance)
-
         mock_repo = MagicMock()
         mock_shipment = MagicMock()
         mock_shipment.id = "ship-1"
         mock_repo.get_by_id = AsyncMock(return_value=mock_shipment)
 
-        mock_registry = MagicMock()
-        mock_registry.get_by_slug = MagicMock(
-            return_value=mock_provider_class,
+        mock_flow = AsyncMock()
+        mock_flow.fetch_and_update_status = AsyncMock(
+            side_effect=Exception("persistent fail"),
         )
 
         with (
             patch(
-                "sendparcel_django.celery.registry", mock_registry
-            ),
-            patch(
                 "sendparcel_django.celery.ShipmentFlow",
-                return_value=AsyncMock(),
+                return_value=mock_flow,
             ),
             patch(
                 "sendparcel_django.celery.DjangoShipmentRepository",
@@ -228,4 +179,4 @@ class TestPollShipmentStatusAsync:
             )
 
         assert result is None
-        assert mock_provider_instance.fetch_shipment_status.call_count == 2
+        assert mock_flow.fetch_and_update_status.call_count == 2

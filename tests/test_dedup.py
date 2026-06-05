@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from asgiref.sync import sync_to_async
 from django.db import IntegrityError
@@ -117,9 +115,7 @@ class TestDjangoWebhookDedupStore:
         store = DjangoWebhookDedupStore()
         payload = {"status": "created"}
         await store.is_duplicate(payload, "1", provider_slug="inpost_locker")
-        record = await sync_to_async(
-            WebhookDedup.objects.get
-        )(shipment_id="1")
+        record = await sync_to_async(WebhookDedup.objects.get)(shipment_id="1")
         assert record.provider_slug == "inpost_locker"
 
     @pytest.mark.django_db(transaction=True)
@@ -131,9 +127,7 @@ class TestDjangoWebhookDedupStore:
         await store.is_duplicate(payload, "1")
         # Try to insert the same combination directly
         with pytest.raises(IntegrityError):
-            await sync_to_async(
-                WebhookDedup.objects.create
-            )(
+            await sync_to_async(WebhookDedup.objects.create)(
                 payload_hash=compute_payload_hash(payload),
                 shipment_id="1",
                 provider_slug="test",

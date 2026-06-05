@@ -25,15 +25,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                self.handle_async(*args, **options)
-            )
-        finally:
-            loop.close()
+        """Synchronous entry point — uses asyncio.run() to execute
+        the async cleanup logic."""
+        asyncio.run(self._handle_async(*args, **options))
 
-    async def handle_async(self, *args: Any, **options: Any) -> None:
+    async def _handle_async(self, *args: Any, **options: Any) -> None:
         store = DjangoWebhookDedupStore(window_seconds=options["window"])
         deleted = await store.cleanup_old_entries()
         self.stdout.write(

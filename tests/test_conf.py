@@ -15,7 +15,7 @@ def test_defaults_when_no_settings_defined() -> None:
 @override_settings(
     SENDPARCEL_PROVIDER_SETTINGS={"dummy": {"api_key": "abc123"}},
     SENDPARCEL_DEFAULT_PROVIDER="dummy",
-    SENDPARCEL_SHIPMENT_MODEL="myapp.CustomShipment",
+    SENDPARCEL_DJANGO_SHIPMENT_MODEL="myapp.CustomShipment",
 )
 def test_settings_override_from_django_settings() -> None:
     """Settings are read from Django settings when defined."""

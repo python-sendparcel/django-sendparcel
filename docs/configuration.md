@@ -2,12 +2,12 @@
 
 All settings are defined in your Django `settings.py`.
 
-## SENDPARCEL_SHIPMENT_MODEL
+## SENDPARCEL_DJANGO_SHIPMENT_MODEL
 
 **Optional.** The dotted path to your concrete Shipment model (similar to Django's `AUTH_USER_MODEL`). Defaults to `"sendparcel_django.Shipment"`.
 
 ```python
-SENDPARCEL_SHIPMENT_MODEL = "myapp.Shipment"
+SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
 Your model must inherit from `sendparcel_django.models.ShipmentModelMixin`.

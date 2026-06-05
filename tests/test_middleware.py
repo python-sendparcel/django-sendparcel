@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any, cast
 
@@ -93,7 +92,7 @@ class TestSendParcelExceptionMiddleware:
         exc = ValueError("unrelated error")
 
         response = middleware.process_exception(request, exc)
-
+        assert response is not None
         assert response.status_code == 500
 
     def test_normal_response_passes_through(self) -> None:

@@ -29,10 +29,10 @@ INSTALLED_APPS = [
 
 ### 2. Configure the Shipment Model (optional)
 
-If you need a custom Shipment model, point `SENDPARCEL_SHIPMENT_MODEL` to it:
+If you need a custom Shipment model, point `SENDPARCEL_DJANGO_SHIPMENT_MODEL` to it:
 
 ```python
-SENDPARCEL_SHIPMENT_MODEL = "myapp.Shipment"
+SENDPARCEL_DJANGO_SHIPMENT_MODEL = "myapp.Shipment"
 ```
 
 ### 3. (Optional) Create a Custom Shipment Model

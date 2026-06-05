@@ -11,6 +11,7 @@ from asgiref.sync import sync_to_async
 from django.db import IntegrityError, OperationalError, connection
 from sendparcel.logging import get_logger
 
+from sendparcel_django.conf import get_settings
 from sendparcel_django.models import WebhookDedup
 
 logger = get_logger(__name__)
@@ -32,24 +33,37 @@ class DjangoWebhookDedupStore:
     Stores a hash of each webhook payload keyed by shipment_id.
     Duplicates within the configured window are detected via a
     unique constraint on (shipment_id, payload_hash).
+
+    The window is configurable via ``SENDPARCEL_WEBHOOK_DEDUP_WINDOW``
+    Django setting (default: 900 seconds = 15 minutes).
     """
 
-    def __init__(self, window_seconds: int = 900) -> None:
-        """
+    def __init__(self, window_seconds: int | None = None) -> None:
+        """Initialize the dedup store.
+
         Args:
-            window_seconds: How long to remember a payload hash
-                before considering it stale (default 15 minutes).
+            window_seconds: How long to remember a payload hash before
+                considering it stale. Defaults to Django setting
+                ``SENDPARCEL_WEBHOOK_DEDUP_WINDOW`` (900s).
         """
+        if window_seconds is None:
+            window_seconds = get_settings().WEBHOOK_DEDUP_WINDOW
         self.window_seconds = window_seconds
 
     def _table_exists_sync(self) -> bool:
-        """Synchronous check if the WebhookDedup table exists."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                [WebhookDedup._meta.db_table],
-            )
-            return cursor.fetchone() is not None
+        """Synchronous check if the WebhookDedup table exists.
+
+        Uses a lightweight SELECT that works across all supported
+        backends without needing backend-specific introspection.
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT 1 FROM {WebhookDedup._meta.db_table} LIMIT 0"
+                )
+            return True
+        except OperationalError:
+            return False
 
     async def is_duplicate(
         self,
@@ -97,8 +111,6 @@ class DjangoWebhookDedupStore:
 
         cutoff = datetime.now(tz=UTC) - timedelta(seconds=self.window_seconds)
         deleted, _ = await sync_to_async(
-            lambda: WebhookDedup.objects.filter(
-                created_at__lt=cutoff
-            ).delete()
+            lambda: WebhookDedup.objects.filter(created_at__lt=cutoff).delete()
         )()
         return deleted

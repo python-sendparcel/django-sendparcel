@@ -34,13 +34,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from django.http import HttpRequest, JsonResponse
+from django.views import View
 from sendparcel.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class HealthCheckView:
-    """Health check view for sendparcel.
+class HealthCheckView(View):
+    """Django view for sendparcel health checks.
 
     Checks database connectivity and provider availability.
     Returns 200 OK if all checks pass, 503 Service Unavailable
@@ -55,7 +56,7 @@ class HealthCheckView:
         """
         self.providers = providers
 
-    def __call__(self, request: HttpRequest) -> JsonResponse:
+    def get(self, request: HttpRequest) -> JsonResponse:
         """Handle health check request."""
         checks = self._run_checks()
         all_ok = True
@@ -117,7 +118,7 @@ class HealthCheckView:
 
     def _check_providers(self) -> dict[str, Any]:
         """Check provider availability."""
-        from sendparcel.registry import registry
+        from sendparcel_django.registry import registry
 
         providers: dict[str, Any] = {}
         provider_slugs = self.providers or [
@@ -147,4 +148,7 @@ class HealthCheckView:
 
 
 # Module-level view instance for easy import.
+# Use ``HealthCheckView.as_view()`` in URL patterns for proper View
+# lifecycle. The module-level instance is provided as a convenience
+# for direct callable usage (e.g. in tests or simple scripts).
 health_check = HealthCheckView()

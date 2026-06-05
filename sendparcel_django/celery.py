@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import swapper
 from asgiref.sync import sync_to_async
 from django_tasks import task
 from sendparcel.enums import ShipmentStatus
@@ -32,7 +33,6 @@ from sendparcel.flow import ShipmentFlow
 from sendparcel.logging import get_logger
 
 from sendparcel_django.dedup import DjangoWebhookDedupStore
-from sendparcel_django.models import CallbackRetry
 from sendparcel_django.registry import registry
 from sendparcel_django.repository import DjangoShipmentRepository
 from sendparcel_django.retry import (
@@ -52,6 +52,16 @@ def _ensure_registry_discovered() -> None:
     registry.discover()
 
 
+def _get_provider_config() -> dict[str, Any]:
+    """Load provider settings from Django settings."""
+    from django.conf import settings
+
+    return cast(
+        dict[str, Any],
+        getattr(settings, "SENDPARCEL_PROVIDER_SETTINGS", {}),
+    )
+
+
 async def _poll_single_shipment_status(
     shipment_id: str,
     provider_slug: str,
@@ -59,7 +69,10 @@ async def _poll_single_shipment_status(
     max_retries: int = 3,
     poll_interval: int = 60,
 ) -> dict[str, Any] | None:
-    """Poll a single shipment's status from its provider.
+    """Poll a single shipment's status via ``ShipmentFlow``.
+
+    Uses the flow's ``fetch_and_update_status`` method so that updates
+    are persisted atomically through the repository.
 
     Args:
         shipment_id: The Django shipment ID.
@@ -73,29 +86,28 @@ async def _poll_single_shipment_status(
     _ensure_registry_discovered()
 
     repository = DjangoShipmentRepository()
-
     shipment = await repository.get_by_id(shipment_id)
     if shipment is None:
         logger.warning("Shipment %s not found for polling", shipment_id)
         return None
 
-    try:
-        provider_class = registry.get_by_slug(provider_slug)
-        provider = provider_class(shipment, config={})
-    except Exception:
-        logger.error("Provider %s not registered for polling", provider_slug)
-        return None
+    provider_config = _get_provider_config()
+    flow = ShipmentFlow(
+        repository=repository,
+        config=provider_config,
+        registry=registry,
+    )
 
     for attempt in range(1, max_retries + 1):
         try:
-            result = await provider.fetch_shipment_status(shipment)  # type: ignore[attr-defined]
+            outcome = await flow.fetch_and_update_status(shipment)
             logger.info(
                 "Poll result for shipment %s (attempt %d): %s",
                 shipment_id,
                 attempt,
-                result,
+                outcome.update,
             )
-            return cast(dict[str, Any] | None, result)
+            return cast(dict[str, Any], outcome.update)
         except Exception as exc:
             if attempt == max_retries:
                 logger.error(
@@ -149,8 +161,10 @@ async def process_due_retries_task(
     try:
         count = await process_due_retries(
             retry_store=DjangoCallbackRetryStore(),
-            flow=ShipmentFlow(repository=DjangoShipmentRepository()),
-            repository=DjangoShipmentRepository(),
+            flow=ShipmentFlow(
+                repository=DjangoShipmentRepository(),  # type: ignore[arg-type]
+            ),
+            repository=DjangoShipmentRepository(),  # type: ignore[arg-type]
             max_attempts=max_attempts,
             backoff_seconds=backoff_seconds,
             limit=limit,
@@ -229,7 +243,9 @@ async def poll_shipment_status_task(
 
         if result is not None:
             logger.info(
-                "Poll completed for shipment %s: %s", shipment_id, result,
+                "Poll completed for shipment %s: %s",
+                shipment_id,
+                result,
             )
             return {
                 "status": "updated",
@@ -238,7 +254,8 @@ async def poll_shipment_status_task(
             }
         else:
             logger.warning(
-                "Poll returned no result for shipment %s", shipment_id,
+                "Poll returned no result for shipment %s",
+                shipment_id,
             )
             return {
                 "status": "failed",
@@ -263,10 +280,10 @@ async def poll_all_pending_statuses_task(
     max_retries: int = 3,
     poll_interval: int = 60,
 ) -> dict[str, Any]:
-    """Poll all pending shipment statuses.
+    """Poll all shipments with pending statuses.
 
     Fetches shipments with status ``"label_ready"`` or ``"in_transit"``
-    that have pending callback retries and polls each one.
+    and polls each one for an updated status.
 
     Args:
         limit: Maximum shipments to poll per run.
@@ -284,14 +301,12 @@ async def poll_all_pending_statuses_task(
             ShipmentStatus.IN_TRANSIT.value,
         ]
 
+        model = swapper.load_model("sendparcel_django", "Shipment")
         shipments = await sync_to_async(
             lambda: list(
-                CallbackRetry.objects.filter(
-                    status__in=pending_statuses
-                )
+                model._default_manager.filter(status__in=pending_statuses)
                 .order_by("created_at")[:limit]
-                .values_list("shipment_id", "provider_slug")
-                .distinct()
+                .values_list("pk", "provider")
             )
         )()
 

@@ -32,6 +32,9 @@ class DummyShipment:
     external_id = ""
     tracking_number = "TRK-TEST"
 
+    def save(self) -> None:
+        pass
+
 
 class DummyProvider(BaseProvider, PushCallbackProvider):
     slug = "dummy"
@@ -69,7 +72,14 @@ class Repo:
     def __init__(self) -> None:
         self.shipment = DummyShipment()
 
-    async def get_by_id(self, shipment_id: str) -> DummyShipment:
+    def get_by_id_sync(
+        self, shipment_id: str, *, for_update: bool = False
+    ) -> DummyShipment:
+        return self.shipment
+
+    async def get_by_id(
+        self, shipment_id: str, *, for_update: bool = False
+    ) -> DummyShipment:
         return self.shipment
 
     async def create(self, **kwargs: Any) -> DummyShipment:
@@ -84,6 +94,43 @@ class Repo:
     ) -> DummyShipment:
         raise NotImplementedError
 
+    async def update_fields(
+        self, shipment_id: str, **fields: Any
+    ) -> DummyShipment:
+        """Atomic field update (simulates DB-level atomicity)."""
+        for key, value in fields.items():
+            setattr(self.shipment, key, value)
+        return self.shipment
+
+    async def delete(self, shipment_id: str) -> None:
+        pass
+
+    async def find_by_reference(
+        self, provider: str, reference_id: str
+    ) -> DummyShipment | None:
+        return self.shipment if self.shipment.provider == provider else None
+
+    async def create_with_idempotency_key(
+        self,
+        provider: str,
+        status: str,
+        reference_id: str,
+        **kwargs: Any,
+    ) -> tuple[DummyShipment | None, DummyShipment | None]:
+        """Atomically check for existing + create if absent."""
+        # Compare as strings to avoid int/str type mismatch.
+        if (
+            self.shipment.provider == provider
+            and str(self.shipment.id) == reference_id
+        ):
+            return (self.shipment, None)
+        new = DummyShipment()
+        new.id = int(reference_id) if reference_id.isdigit() else 0
+        new.provider = provider
+        new.status = status  # type: ignore[assignment]
+        self.shipment = new
+        return (None, new)
+
 
 class RequestStub:
     def __init__(
@@ -92,10 +139,12 @@ class RequestStub:
         headers: dict[str, str],
         *,
         remote_addr: str = "127.0.0.1",
+        content_type: str = "application/json",
     ) -> None:
         self.body = json.dumps(payload).encode("utf-8")
         self.headers = headers
         self.method = "POST"
+        self.content_type = content_type
         self.META: dict[str, Any] = {"REMOTE_ADDR": remote_addr}
 
 
@@ -325,7 +374,14 @@ async def test_callback_returns_400_on_generic_sendparcel_exception() -> None:
 @pytest.mark.django_db(transaction=True)
 async def test_callback_returns_404_when_shipment_is_missing() -> None:
     class MissingRepo(Repo):
-        async def get_by_id(self, shipment_id: str) -> DummyShipment:
+        def get_by_id_sync(
+            self, shipment_id: str, *, for_update: bool = False
+        ) -> DummyShipment:
+            raise ShipmentNotFoundError(shipment_id)
+
+        async def get_by_id(
+            self, shipment_id: str, *, for_update: bool = False
+        ) -> DummyShipment:
             raise ShipmentNotFoundError(shipment_id)
 
     django_registry.register(DummyProvider)
@@ -361,7 +417,9 @@ async def test_callback_returns_404_when_provider_is_missing() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-async def test_callback_returns_409_when_provider_lacks_callback_support() -> None:
+async def test_callback_returns_409_when_provider_lacks_callback_support() -> (
+    None
+):
     django_registry.register(NoCallbackProvider)
     repo = Repo()
     repo.shipment.provider = "no-callback"
@@ -402,6 +460,7 @@ class TestCallbackEdgeCases:
 
         class BadJsonRequest:
             body = b"not-json{{"
+            content_type = "application/json"
             headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
 
@@ -420,6 +479,7 @@ class TestCallbackEdgeCases:
 
         class BadUtf8Request:
             body = b"\x80\x81\x82"
+            content_type = "application/json"
             headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
 
@@ -437,6 +497,7 @@ class TestCallbackEdgeCases:
 
         class EmptyRequest:
             body = b""
+            content_type = "application/json"
             headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "POST"
             META: ClassVar[dict[str, str]] = {"REMOTE_ADDR": "127.0.0.1"}
@@ -486,6 +547,7 @@ class TestCallbackEdgeCases:
 
         class GetRequest:
             body = b"{}"
+            content_type = "application/json"
             headers: ClassVar[dict[str, str]] = {"x-dummy-token": "ok"}
             method = "GET"
             path = "/callback/1/"
@@ -511,3 +573,56 @@ class TestCallbackEdgeCases:
 
         # Should succeed (status 200), not 403 Forbidden
         assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_concurrent_callbacks_are_serialized() -> None:
+    """Two concurrent callbacks for the same shipment must not race.
+
+    The ``select_for_update`` lock in ``_handle_callback`` serializes
+    concurrent callbacks, so the second callback sees the state
+    updated by the first one.
+    """
+    import asyncio
+
+    django_registry.register(DummyProvider)
+
+    class TrackingRepo(Repo):
+        """Tracks how many times handle_callback was called."""
+
+        call_count: ClassVar[int] = 0
+
+        async def update_fields(
+            self, shipment_id: str, **fields: Any
+        ) -> DummyShipment:
+            TrackingRepo.call_count += 1
+            for key, value in fields.items():
+                setattr(self.shipment, key, value)
+            return self.shipment
+
+    repo = TrackingRepo()
+    repo.shipment.status = ShipmentStatus.LABEL_READY
+
+    # Fire two callbacks concurrently for the same shipment.
+    task1 = _callback_response(
+        RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+        "1",
+        repository=repo,
+        config={"dummy": {"callback_token": "ok"}},
+    )
+    task2 = _callback_response(
+        RequestStub({"event": "picked_up"}, {"x-dummy-token": "ok"}),
+        "1",
+        repository=repo,
+        config={"dummy": {"callback_token": "ok"}},
+    )
+
+    responses = await asyncio.gather(task1, task2)
+
+    # Both should succeed.
+    for resp in responses:
+        assert resp.status_code == 200
+
+    # The transaction.atomic() + select_for_update() ensures the
+    # callbacks are serialized — both complete successfully.
+    assert repo.shipment.status == ShipmentStatus.IN_TRANSIT

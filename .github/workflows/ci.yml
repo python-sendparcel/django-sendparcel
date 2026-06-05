@@ -23,5 +23,8 @@ jobs:
       - name: Lint
         run: uv run --extra dev ruff check sendparcel_django tests
 
+      - name: Type check
+        run: uv run --extra dev mypy sendparcel_django
+
       - name: Test
         run: uv run --extra dev pytest -q

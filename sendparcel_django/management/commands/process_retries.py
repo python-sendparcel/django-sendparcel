@@ -45,19 +45,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        """Synchronous entry point — bootstraps an event loop for the
-        async retry processing logic.
+        """Synchronous entry point — uses asyncio.run() to execute
+        the async retry processing logic.
 
-        Django management commands are sync by convention; this pattern
-        is the standard bridge to async workflow code.
+        Django management commands are sync by convention; ``asyncio.run()``
+        creates and closes a fresh event loop for each invocation,
+        avoiding resource leaks from manual loop management.
         """
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                self._handle_async(*args, **options)
-            )
-        finally:
-            loop.close()
+        asyncio.run(self._handle_async(*args, **options))
 
     async def _handle_async(self, *args: Any, **options: Any) -> None:
         retry_store = DjangoCallbackRetryStore()

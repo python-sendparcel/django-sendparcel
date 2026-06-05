@@ -22,10 +22,13 @@ class TestComputeNextRetryAt:
         result = compute_next_retry_at(attempt=1, backoff_seconds=60)
         after = datetime.now(tz=UTC)
 
+        # Base delay is 60s with +/-10% jitter (54-66s range).
+        # Allow a generous margin: result should be between
+        # before + 54s and after + 66s.
         assert (
-            before + timedelta(seconds=60)
+            before + timedelta(seconds=54)
             <= result
-            <= after + timedelta(seconds=60)
+            <= after + timedelta(seconds=66)
         )
 
     def test_second_attempt_doubles_backoff(self) -> None:
@@ -80,7 +83,9 @@ class TestDjangoCallbackRetryStore:
             next_retry_at=datetime.now(tz=UTC) - timedelta(minutes=1),
         )
         # Future retry
-        await store.store_failed_callback("ship-future", "test-provider", {}, {})
+        await store.store_failed_callback(
+            "ship-future", "test-provider", {}, {}
+        )
         await sync_to_async(
             CallbackRetry.objects.filter(shipment_id="ship-future").update,
         )(
@@ -96,7 +101,9 @@ class TestDjangoCallbackRetryStore:
     async def test_get_due_retries_respects_limit(self) -> None:
         store = DjangoCallbackRetryStore()
         for i in range(5):
-            await store.store_failed_callback(f"ship-{i}", "test-provider", {}, {})
+            await store.store_failed_callback(
+                f"ship-{i}", "test-provider", {}, {}
+            )
         await sync_to_async(
             CallbackRetry.objects.update,
         )(
@@ -143,7 +150,9 @@ class TestDjangoCallbackRetryStore:
         record = await sync_to_async(CallbackRetry.objects.get)(id=retry_id)
         assert record.status == "exhausted"
 
-    async def test_pending_retries_with_null_next_retry_at_are_due(self) -> None:
+    async def test_pending_retries_with_null_next_retry_at_are_due(
+        self,
+    ) -> None:
         """Records with no next_retry_at (just created) should be returned."""
         store = DjangoCallbackRetryStore()
         await store.store_failed_callback("ship-null", "test-provider", {}, {})

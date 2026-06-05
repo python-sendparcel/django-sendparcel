@@ -52,6 +52,8 @@ class CallbackRetry(models.Model):
     provider_slug = models.CharField(max_length=64, default="unknown")
     payload = models.JSONField(default=dict)
     headers = models.JSONField(default=dict)
+    source_ip = models.GenericIPAddressField(null=True, blank=True)
+    raw_body = models.BinaryField(null=True, blank=True)
     attempts = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0)],

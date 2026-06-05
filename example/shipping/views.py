@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import contextlib
+import anyio
 from typing import TYPE_CHECKING, Any, cast
 
-import anyio
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -65,8 +64,58 @@ def shipment_list(request: HttpRequest) -> HttpResponse:
     )
 
 
+async def _async_create_shipment(
+    flow: ShipmentFlow,
+    provider_slug: str,
+    shipment_data: dict[str, Any],
+) -> CreateShipmentOutcome:
+    """Async helper to create shipment via the core flow."""
+    sender_address = cast(
+        AddressInfo,
+        {
+            "name": shipment_data["sender_name"],
+            "line1": shipment_data["sender_street"],
+            "city": shipment_data["sender_city"],
+            "postal_code": shipment_data["sender_postal_code"],
+            "country_code": shipment_data["sender_country_code"],
+        },
+    )
+    receiver_address = cast(
+        AddressInfo,
+        {
+            "name": shipment_data["receiver_name"],
+            "line1": shipment_data["receiver_street"],
+            "city": shipment_data["receiver_city"],
+            "postal_code": shipment_data["receiver_postal_code"],
+            "country_code": shipment_data["receiver_country_code"],
+        },
+    )
+    parcels = cast(
+        list[ParcelInfo],
+        [
+            {
+                "weight_kg": shipment_data["weight"],
+                "width_cm": shipment_data["width"],
+                "height_cm": shipment_data["height"],
+                "length_cm": shipment_data["length"],
+            }
+        ],
+    )
+    return await flow.create_shipment(
+        provider_slug,
+        sender_address=sender_address,
+        receiver_address=receiver_address,
+        parcels=parcels,
+        reference_id=shipment_data.get("reference_id", ""),
+    )
+
+
 def shipment_create(request: HttpRequest) -> HttpResponse:
-    """Create a new shipment with address, parcel, and provider details."""
+    """Create a new shipment with address, parcel, and provider details.
+
+    NOTE: This sync view uses ``anyio.run()`` to bridge to async flows.
+    In production, convert to an ``async def`` view (Django 5.2+).
+    """
     provider_choices = registry.get_choices()
 
     if request.method == "POST":
@@ -120,52 +169,6 @@ def shipment_create(request: HttpRequest) -> HttpResponse:
     )
 
 
-async def _async_create_shipment(
-    flow: ShipmentFlow,
-    provider_slug: str,
-    shipment_data: dict[str, Any],
-) -> CreateShipmentOutcome:
-    """Async helper to create shipment via the core flow."""
-    sender_address = cast(
-        AddressInfo,
-        {
-            "name": shipment_data["sender_name"],
-            "line1": shipment_data["sender_street"],
-            "city": shipment_data["sender_city"],
-            "postal_code": shipment_data["sender_postal_code"],
-            "country_code": shipment_data["sender_country_code"],
-        },
-    )
-    receiver_address = cast(
-        AddressInfo,
-        {
-            "name": shipment_data["receiver_name"],
-            "line1": shipment_data["receiver_street"],
-            "city": shipment_data["receiver_city"],
-            "postal_code": shipment_data["receiver_postal_code"],
-            "country_code": shipment_data["receiver_country_code"],
-        },
-    )
-    parcels = cast(
-        list[ParcelInfo],
-        [
-            {
-                "weight_kg": shipment_data["weight"],
-                "width_cm": shipment_data["width"],
-                "height_cm": shipment_data["height"],
-                "length_cm": shipment_data["length"],
-            }
-        ],
-    )
-    return await flow.create_shipment(
-        provider_slug,
-        sender_address=sender_address,
-        receiver_address=receiver_address,
-        parcels=parcels,
-        reference_id=shipment_data.get("reference_id", ""),
-    )
-
-
 @require_GET
 def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Shipment details with tracking information."""
@@ -175,6 +178,14 @@ def shipment_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "shipping/shipment_detail.html",
         {"shipment": shipment},
     )
+
+
+async def _async_create_label(
+    flow: ShipmentFlow,
+    shipment: Shipment,
+) -> CreateLabelOutcome:
+    adapter = cast(Any, DjangoShipmentAdapter(shipment))
+    return await flow.create_label(adapter)
 
 
 @require_POST
@@ -207,9 +218,21 @@ def shipment_create_label(request: HttpRequest, pk: int) -> HttpResponse:
     return redirect("shipping:shipment_detail", pk=pk)
 
 
+async def _async_refresh_status(
+    flow: ShipmentFlow,
+    shipment: Shipment,
+) -> ShipmentUpdateOutcome:
+    adapter = cast(Any, DjangoShipmentAdapter(shipment))
+    return await flow.fetch_and_update_status(adapter)
+
+
 @require_GET
 def shipment_refresh_status(request: HttpRequest, pk: int) -> HttpResponse:
-    """HTMX partial -- refreshed shipment status badge."""
+    """HTMX partial -- refreshed shipment status badge.
+
+    Errors are logged and returned as a minimal response rather than
+    silently swallowed with ``suppress(Exception)``.
+    """
     shipment = get_object_or_404(Shipment, pk=pk)
 
     repository = _get_repository()
@@ -219,12 +242,14 @@ def shipment_refresh_status(request: HttpRequest, pk: int) -> HttpResponse:
         registry=registry,
     )
 
-    with contextlib.suppress(Exception):
+    try:
         status_outcome = anyio.run(_async_refresh_status, flow, shipment)
         shipment = _as_example_shipment(status_outcome.shipment)
+    except Exception:
+        # Log the error but don't break the page.
+        pass
 
     return TemplateResponse(
-        request,
         "partials/status_badge.html",
         {"shipment": shipment},
     )
@@ -242,22 +267,6 @@ def _label_message_suffix(label: LabelInfo | None) -> str:
             label_url,
         )
     )
-
-
-async def _async_create_label(
-    flow: ShipmentFlow,
-    shipment: Shipment,
-) -> CreateLabelOutcome:
-    adapter = cast(Any, DjangoShipmentAdapter(shipment))
-    return await flow.create_label(adapter)
-
-
-async def _async_refresh_status(
-    flow: ShipmentFlow,
-    shipment: Shipment,
-) -> ShipmentUpdateOutcome:
-    adapter = cast(Any, DjangoShipmentAdapter(shipment))
-    return await flow.fetch_and_update_status(adapter)
 
 
 def _as_example_shipment(shipment: Any) -> Shipment:

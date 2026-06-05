@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -9,6 +10,7 @@ from asgiref.sync import sync_to_async
 from django.db.models import Q
 from sendparcel.logging import get_logger
 
+from sendparcel_django.conf import get_settings
 from sendparcel_django.models import CallbackRetry
 
 logger = get_logger(__name__)
@@ -16,14 +18,30 @@ logger = get_logger(__name__)
 
 def compute_next_retry_at(
     attempt: int,
-    backoff_seconds: int = 60,
+    backoff_seconds: int | None = None,
+    jitter_fraction: float = 0.1,
 ) -> datetime:
-    """Compute next retry time using exponential backoff.
+    """Compute next retry time using exponential backoff with jitter.
 
-    delay = backoff_seconds * 2^(attempt - 1)
+    delay = backoff_seconds * 2^(attempt - 1) * (1 ± jitter)
+
+    Jitter prevents thundering herd when many retries are scheduled
+    for the same time after a provider outage.
+
+    Args:
+        attempt: Current attempt number (1-based).
+        backoff_seconds: Base delay in seconds. Defaults to Django setting.
+        jitter_fraction: Fraction of delay to randomize (0.0-1.0).
+            Default 0.1 = +/-10% jitter.
     """
-    delay = backoff_seconds * (2 ** (attempt - 1))
-    return datetime.now(tz=UTC) + timedelta(seconds=delay)
+    if backoff_seconds is None:
+        backoff_seconds = get_settings().CALLBACK_RETRY_BACKOFF_BASE
+
+    base_delay = backoff_seconds * (2 ** (attempt - 1))
+    # Apply jitter: randomize between (1 - jitter) and (1 + jitter)
+    jitter = base_delay * jitter_fraction
+    delay = base_delay + random.uniform(-jitter, jitter)
+    return datetime.now(tz=UTC) + timedelta(seconds=max(0, delay))
 
 
 class DjangoCallbackRetryStore:
@@ -35,6 +53,8 @@ class DjangoCallbackRetryStore:
         provider_slug: str,
         payload: dict[str, Any],
         headers: dict[str, Any],
+        source_ip: str = "",
+        raw_body: bytes = b"",
     ) -> str:
         """Persist a failed callback for later retry.
 
@@ -45,6 +65,8 @@ class DjangoCallbackRetryStore:
             provider_slug=provider_slug,
             payload=payload,
             headers=headers,
+            source_ip=source_ip or None,
+            raw_body=raw_body or None,
         )
         return str(record.id)
 
@@ -54,9 +76,13 @@ class DjangoCallbackRetryStore:
         Records with null next_retry_at are considered immediately due.
         """
         now = datetime.now(tz=UTC)
-        qs_queryset = CallbackRetry.objects.filter(status="pending").filter(
-            Q(next_retry_at__lte=now) | Q(next_retry_at__isnull=True),
-        ).order_by("created_at")[:limit]
+        qs_queryset = (
+            CallbackRetry.objects.filter(status="pending")
+            .filter(
+                Q(next_retry_at__lte=now) | Q(next_retry_at__isnull=True),
+            )
+            .order_by("created_at")[:limit]
+        )
         qs: list[CallbackRetry] = await sync_to_async(
             lambda: list(qs_queryset)
         )()
@@ -67,6 +93,8 @@ class DjangoCallbackRetryStore:
                 "shipment_id": record.shipment_id,
                 "payload": record.payload,
                 "headers": record.headers,
+                "source_ip": record.source_ip,
+                "raw_body": record.raw_body,
                 "attempts": record.attempts,
             }
             for record in qs
@@ -118,6 +146,8 @@ async def _process_single_retry(
         shipment,
         retry_record["payload"],
         retry_record["headers"],
+        source_ip=retry_record.get("source_ip", ""),
+        raw_body=retry_record.get("raw_body", b""),
     )
 
 
@@ -151,9 +181,7 @@ async def process_due_retries(
             continue
 
         try:
-            await _process_single_retry(
-                flow, repository, retry_record
-            )
+            await _process_single_retry(flow, repository, retry_record)
             await retry_store.mark_succeeded(retry_id)
             succeeded += 1
         except Exception as exc:

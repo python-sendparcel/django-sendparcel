@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("sendparcel_django", "0004_remove_shipment_label_url_and_more"),
     ]
@@ -24,9 +23,18 @@ class Migration(migrations.Migration):
                         serialize=False,
                     ),
                 ),
-                ("payload_hash", models.CharField(db_index=True, max_length=64)),
-                ("shipment_id", models.CharField(db_index=True, max_length=128)),
-                ("provider_slug", models.CharField(default="unknown", max_length=64)),
+                (
+                    "payload_hash",
+                    models.CharField(db_index=True, max_length=64),
+                ),
+                (
+                    "shipment_id",
+                    models.CharField(db_index=True, max_length=128),
+                ),
+                (
+                    "provider_slug",
+                    models.CharField(default="unknown", max_length=64),
+                ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
