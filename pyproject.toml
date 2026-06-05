@@ -28,11 +28,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sendparcel/django-sendparcel"
-Documentation = "https://django-sendparcel.readthedocs.io/"
-Repository = "https://github.com/sendparcel/django-sendparcel"
-Changelog = "https://github.com/sendparcel/django-sendparcel/blob/main/CHANGELOG.md"
-"Issue Tracker" = "https://github.com/sendparcel/django-sendparcel/issues"
+Homepage = "https://github.com/python-sendparcel/django-sendparcel"
+# Documentation = "https://django-sendparcel.readthedocs.io/"
+Repository = "https://github.com/python-sendparcel/django-sendparcel"
+Changelog = "https://github.com/python-sendparcel/django-sendparcel/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/python-sendparcel/django-sendparcel/issues"
 
 [project.optional-dependencies]
 dev = [
