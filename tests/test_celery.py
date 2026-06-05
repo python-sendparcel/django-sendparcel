@@ -96,7 +96,7 @@ class TestPollShipmentStatusAsync:
                 "ship-missing",
                 "test-provider",
                 max_retries=1,
-                poll_interval=10,  # noqa: E501
+                poll_interval=10,
             )
 
         assert result is None

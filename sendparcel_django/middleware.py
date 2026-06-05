@@ -66,7 +66,7 @@ class SendParcelExceptionMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
-        return response  # type: ignore[return-value]
+        return response
 
     def process_exception(
         self,

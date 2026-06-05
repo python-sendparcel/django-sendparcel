@@ -162,9 +162,9 @@ async def process_due_retries_task(
         count = await process_due_retries(
             retry_store=DjangoCallbackRetryStore(),
             flow=ShipmentFlow(
-                repository=DjangoShipmentRepository(),  # type: ignore[arg-type]
+                repository=DjangoShipmentRepository(),
             ),
-            repository=DjangoShipmentRepository(),  # type: ignore[arg-type]
+            repository=DjangoShipmentRepository(),
             max_attempts=max_attempts,
             backoff_seconds=backoff_seconds,
             limit=limit,

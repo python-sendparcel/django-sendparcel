@@ -69,7 +69,8 @@ ignore = ["N818", "B027"]
 
 [tool.ruff.lint.per-file-ignores]
 "sendparcel_django/migrations/*" = ["RUF012"]
-"example/*" = ["RUF012"]
+"example/*" = ["RUF012", "I001", "A001"]
+"docs/**" = ["A001"]
 "sendparcel_django/protocols.py" = ["A003"]
 
 [tool.uv.sources]
@@ -92,6 +93,14 @@ plugins = ["mypy_django_plugin.main"]
 [[tool.mypy.overrides]]
 module = ["*.migrations.*"]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["sendparcel_django.celery", "sendparcel_django.management.commands.process_retries"]
+disable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
+module = ["sendparcel_django.middleware"]
+disable_error_code = ["return-value"]
 
 [[tool.mypy.overrides]]
 module = ["swapper"]

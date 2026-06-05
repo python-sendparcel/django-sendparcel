@@ -35,22 +35,34 @@ class TestComputeNextRetryAt:
         before = datetime.now(tz=UTC)
         result = compute_next_retry_at(attempt=2, backoff_seconds=60)
 
-        expected_min = before + timedelta(seconds=120)
-        assert result >= expected_min
+        # Base delay is 120s with +/-10% jitter (108-132s range).
+        assert (
+            before + timedelta(seconds=108)
+            <= result
+            <= before + timedelta(seconds=140)
+        )
 
     def test_third_attempt_quadruples_backoff(self) -> None:
         before = datetime.now(tz=UTC)
         result = compute_next_retry_at(attempt=3, backoff_seconds=60)
 
-        expected_min = before + timedelta(seconds=240)
-        assert result >= expected_min
+        # Base delay is 240s with +/-10% jitter (216-264s range).
+        assert (
+            before + timedelta(seconds=216)
+            <= result
+            <= before + timedelta(seconds=275)
+        )
 
     def test_backoff_with_different_base(self) -> None:
         before = datetime.now(tz=UTC)
         result = compute_next_retry_at(attempt=1, backoff_seconds=30)
 
-        expected_min = before + timedelta(seconds=30)
-        assert result >= expected_min
+        # Base delay is 30s with +/-10% jitter (27-33s range).
+        assert (
+            before + timedelta(seconds=27)
+            <= result
+            <= before + timedelta(seconds=36)
+        )
 
 
 @pytest.mark.django_db
