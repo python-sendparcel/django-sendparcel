@@ -17,6 +17,7 @@ from sendparcel.exceptions import (
 from sendparcel.provider import BaseProvider, PushCallbackProvider
 from sendparcel.types import (
     AddressInfo,
+    CallbackContext,
     ParcelInfo,
     ShipmentCreateResult,
     ShipmentUpdateResult,
@@ -52,17 +53,15 @@ class DummyProvider(BaseProvider, PushCallbackProvider):
 
     async def verify_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> None:
-        if headers.get("x-dummy-token") != "ok":
+        if ctx.headers.get("x-dummy-token") != "ok":
             raise InvalidCallbackError("BAD TOKEN")
 
     async def handle_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> ShipmentUpdateResult:
         return {"status": ShipmentStatus.IN_TRANSIT}
@@ -216,16 +215,14 @@ class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def verify_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> None:
         raise CommunicationError("Provider API unreachable")
 
     async def handle_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> ShipmentUpdateResult:
         return {}
@@ -247,16 +244,14 @@ class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def verify_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> None:
         pass
 
     async def handle_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> ShipmentUpdateResult:
         raise InvalidTransitionError("Cannot transition from current state")
@@ -278,16 +273,14 @@ class GenericErrorProvider(BaseProvider, PushCallbackProvider):
 
     async def verify_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> None:
         pass
 
     async def handle_callback(
         self,
-        data: dict[str, Any],
-        headers: dict[str, Any],
+        ctx: CallbackContext,
         **kwargs: Any,
     ) -> ShipmentUpdateResult:
         raise SendParcelException("Something went wrong")

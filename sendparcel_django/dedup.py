@@ -2,29 +2,17 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.db import IntegrityError, OperationalError, connection
 from sendparcel.logging import get_logger
+from sendparcel.types import CallbackContext
 
 from sendparcel_django.conf import get_settings
 from sendparcel_django.models import WebhookDedup
 
 logger = get_logger(__name__)
-
-
-def compute_payload_hash(payload: dict[str, Any]) -> str:
-    """Compute a SHA-256 hash of a webhook payload dict.
-
-    The payload is serialised with sorted keys for deterministic hashing
-    across different Python versions and dict insertion orders.
-    """
-    raw = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
 
 
 class DjangoWebhookDedupStore:
@@ -67,11 +55,12 @@ class DjangoWebhookDedupStore:
 
     async def is_duplicate(
         self,
-        payload: dict[str, Any],
-        shipment_id: str,
+        ctx: CallbackContext,
         provider_slug: str = "unknown",
     ) -> bool:
         """Check if this payload has been seen recently.
+
+        Uses the ``ctx.dedup_hash`` property for deterministic hashing.
 
         Attempts to insert a row atomically.  If the unique constraint
         fires (another worker already stored this hash) the record is
@@ -80,15 +69,13 @@ class DjangoWebhookDedupStore:
         If the WebhookDedup table does not exist (e.g. migrations not
         yet applied), dedup is skipped and ``False`` is returned.
         """
-        payload_hash = compute_payload_hash(payload)
-
         try:
             await sync_to_async(
                 WebhookDedup.objects.create,
                 thread_sensitive=True,
             )(
-                payload_hash=payload_hash,
-                shipment_id=shipment_id,
+                payload_hash=ctx.dedup_hash,
+                shipment_id=ctx.shipment_id,
                 provider_slug=provider_slug,
             )
         except IntegrityError:

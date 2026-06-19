@@ -141,14 +141,17 @@ async def _process_single_retry(
     flow: Any, repository: Any, retry_record: dict[str, Any]
 ) -> None:
     """Process a single retry record asynchronously."""
+    from sendparcel.types import CallbackContext
+
     shipment = await repository.get_by_id(retry_record["shipment_id"])
-    await flow.handle_callback(
-        shipment,
-        retry_record["payload"],
-        retry_record["headers"],
+    ctx = CallbackContext(
+        shipment_id=retry_record["shipment_id"],
+        payload=retry_record["payload"],
+        headers=retry_record["headers"],
         source_ip=retry_record.get("source_ip", ""),
         raw_body=retry_record.get("raw_body", b""),
     )
+    await flow.handle_callback(ctx, shipment=shipment)
 
 
 async def process_due_retries(

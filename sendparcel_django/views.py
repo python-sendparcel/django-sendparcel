@@ -22,7 +22,11 @@ from sendparcel.exceptions import (
 from sendparcel.flow import ShipmentFlow
 from sendparcel.logging import get_logger
 from sendparcel.protocols import ShipmentRepository
-from sendparcel.types import ShipmentUpdateOutcome, ShipmentUpdateResult
+from sendparcel.types import (
+    CallbackContext,
+    ShipmentUpdateOutcome,
+    ShipmentUpdateResult,
+)
 
 from sendparcel_django.conf import get_settings
 from sendparcel_django.dedup import DjangoWebhookDedupStore
@@ -110,18 +114,22 @@ async def callback(
             status=400,
         )
 
+    # Build the callback context — everything the core needs in one object.
+    ctx = CallbackContext(
+        shipment_id=shipment_id,
+        payload=payload,
+        headers=dict(getattr(request, "headers", {})),
+        source_ip=request.META.get("REMOTE_ADDR", ""),
+        raw_body=bytes(getattr(request, "body", b"")),
+    )
+
     # Deduplication check: skip processing if this payload was already
     # handled within the configured window.  Returns 200 OK immediately
     # so the provider does not retry.
     dedup_store = DjangoWebhookDedupStore()
-    if await dedup_store.is_duplicate(payload, shipment_id):
+    if await dedup_store.is_duplicate(ctx):
         logger.info("Duplicate webhook for shipment %s, skipping", shipment_id)
         return JsonResponse({"status": "accepted"}, status=200)
-
-    # Validate source IP from the actual TCP connection, not from spoofable
-    # headers. Pass the validated IP directly to the provider.
-    source_ip = request.META.get("REMOTE_ADDR", "")
-    headers: dict[str, str] = dict(getattr(request, "headers", {}))
 
     flow = ShipmentFlow(
         repository=repository,
@@ -130,25 +138,10 @@ async def callback(
     )
 
     try:
-        outcome = await _handle_callback(
-            flow,
-            repository,
-            shipment_id,
-            payload,
-            headers,
-            getattr(request, "body", b""),
-            source_ip=source_ip,
-        )
+        outcome = await _handle_callback(flow, repository, ctx)
     except CommunicationError as exc:
         # Store for later retry so transient failures are recovered.
-        await _store_failed_callback_for_retry(
-            shipment_id=shipment_id,
-            payload=payload,
-            headers=dict(headers),
-            source_ip=source_ip,
-            raw_body=getattr(request, "body", b""),
-            exc=exc,
-        )
+        await _store_failed_callback_for_retry(ctx, exc)
         return JsonResponse(
             {"detail": str(exc), "code": "communication_error"},
             status=502,
@@ -216,11 +209,7 @@ def _save_shipment_sync(shipment: Any) -> Any:
 async def _handle_callback(
     flow: ShipmentFlow,
     repository: ShipmentRepository,
-    shipment_id: str,
-    payload: dict[str, Any],
-    headers: dict[str, Any],
-    raw_body: bytes,
-    **kwargs: Any,
+    ctx: CallbackContext,
 ) -> ShipmentUpdateOutcome:
     """Handle a callback with DB transaction and row-level locking.
 
@@ -232,16 +221,10 @@ async def _handle_callback(
     shipment = await sync_to_async(
         _load_shipment_locked,
         thread_sensitive=True,
-    )(repository, shipment_id)
+    )(repository, ctx.shipment_id)
 
     # 2. Call async providers outside the transaction.
-    outcome = await flow.handle_callback(
-        shipment,
-        payload,
-        headers,
-        raw_body=raw_body,
-        **kwargs,
-    )
+    outcome = await flow.handle_callback(ctx, shipment=shipment)
 
     # 3. Persist the result inside a sync transaction boundary.
     saved = await sync_to_async(
@@ -278,12 +261,7 @@ def _serialize_update(update: ShipmentUpdateResult) -> dict[str, Any]:
 
 
 async def _store_failed_callback_for_retry(
-    *,
-    shipment_id: str,
-    payload: dict[str, Any],
-    headers: dict[str, Any],
-    source_ip: str,
-    raw_body: bytes,
+    ctx: CallbackContext,
     exc: CommunicationError,
 ) -> None:
     """Persist a failed callback for later retry processing.
@@ -298,22 +276,22 @@ async def _store_failed_callback_for_retry(
     retry_store = DjangoCallbackRetryStore()
     try:
         retry_id = await retry_store.store_failed_callback(
-            shipment_id=shipment_id,
+            shipment_id=ctx.shipment_id,
             provider_slug="unknown",
-            payload=payload,
-            headers=headers,
-            source_ip=source_ip,
-            raw_body=raw_body,
+            payload=ctx.payload,
+            headers=ctx.headers,
+            source_ip=ctx.source_ip,
+            raw_body=ctx.raw_body,
         )
         logger.info(
             "Stored failed callback for retry (id=%s, shipment=%s, error=%s)",
             retry_id,
-            shipment_id,
+            ctx.shipment_id,
             exc,
         )
     except Exception as store_exc:
         logger.error(
             "Failed to store callback retry for shipment %s: %s",
-            shipment_id,
+            ctx.shipment_id,
             store_exc,
         )
