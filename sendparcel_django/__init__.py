@@ -14,12 +14,10 @@ if TYPE_CHECKING:
         Shipment,
         ShipmentModelMixin,
     )
-    from sendparcel_django.protocols import DjangoShipmentAdapter
     from sendparcel_django.registry import registry
     from sendparcel_django.repository import DjangoShipmentRepository
 
 __all__ = [
-    "DjangoShipmentAdapter",
     "DjangoShipmentRepository",
     "ProviderChoiceForm",
     "Shipment",
@@ -32,10 +30,6 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ProviderChoiceForm": ("sendparcel_django.forms", "ProviderChoiceForm"),
     "Shipment": ("sendparcel_django.models", "Shipment"),
     "ShipmentModelMixin": ("sendparcel_django.models", "ShipmentModelMixin"),
-    "DjangoShipmentAdapter": (
-        "sendparcel_django.protocols",
-        "DjangoShipmentAdapter",
-    ),
     "DjangoShipmentRepository": (
         "sendparcel_django.repository",
         "DjangoShipmentRepository",

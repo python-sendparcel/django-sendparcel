@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import pytest
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import InvalidTransitionError
 from sendparcel.fsm import transition_shipment
 from sendparcel_django.models import Shipment
-from sendparcel_django.protocols import DjangoShipmentAdapter
 
 
 @pytest.mark.django_db
@@ -23,19 +20,19 @@ class TestFSMWithDjangoModel:
 
         assert shipment.status == ShipmentStatus.NEW
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.CREATED)
+        transition_shipment(shipment, ShipmentStatus.CREATED)
         assert shipment.status == ShipmentStatus.CREATED
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.LABEL_READY)
+        transition_shipment(shipment, ShipmentStatus.LABEL_READY)
         assert shipment.status == ShipmentStatus.LABEL_READY
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.IN_TRANSIT)
+        transition_shipment(shipment, ShipmentStatus.IN_TRANSIT)
         assert shipment.status == ShipmentStatus.IN_TRANSIT
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.OUT_FOR_DELIVERY)
+        transition_shipment(shipment, ShipmentStatus.OUT_FOR_DELIVERY)
         assert shipment.status == ShipmentStatus.OUT_FOR_DELIVERY
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.DELIVERED)
+        transition_shipment(shipment, ShipmentStatus.DELIVERED)
         assert shipment.status == ShipmentStatus.DELIVERED
 
     def test_cancel_from_new(self) -> None:
@@ -43,7 +40,7 @@ class TestFSMWithDjangoModel:
             provider="dummy", reference_id="order-2"
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.CANCELLED)
+        transition_shipment(shipment, ShipmentStatus.CANCELLED)
         assert shipment.status == ShipmentStatus.CANCELLED
 
     def test_cancel_from_created(self) -> None:
@@ -53,7 +50,7 @@ class TestFSMWithDjangoModel:
             status=ShipmentStatus.CREATED,
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.CANCELLED)
+        transition_shipment(shipment, ShipmentStatus.CANCELLED)
         assert shipment.status == ShipmentStatus.CANCELLED
 
     def test_cancel_from_label_ready(self) -> None:
@@ -63,7 +60,7 @@ class TestFSMWithDjangoModel:
             status=ShipmentStatus.LABEL_READY,
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.CANCELLED)
+        transition_shipment(shipment, ShipmentStatus.CANCELLED)
         assert shipment.status == ShipmentStatus.CANCELLED
 
     def test_fail_from_new(self) -> None:
@@ -71,7 +68,7 @@ class TestFSMWithDjangoModel:
             provider="dummy", reference_id="order-5"
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.FAILED)
+        transition_shipment(shipment, ShipmentStatus.FAILED)
         assert shipment.status == ShipmentStatus.FAILED
 
     def test_fail_from_in_transit(self) -> None:
@@ -82,7 +79,7 @@ class TestFSMWithDjangoModel:
             tracking_number="TRK-TEST",
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.FAILED)
+        transition_shipment(shipment, ShipmentStatus.FAILED)
         assert shipment.status == ShipmentStatus.FAILED
 
     def test_cannot_deliver_from_new(self) -> None:
@@ -91,7 +88,7 @@ class TestFSMWithDjangoModel:
         )
 
         with pytest.raises(InvalidTransitionError):
-            transition_shipment(_adapter(shipment), ShipmentStatus.DELIVERED)
+            transition_shipment(shipment, ShipmentStatus.DELIVERED)
 
     def test_cannot_cancel_from_delivered(self) -> None:
         shipment = Shipment.objects.create(
@@ -101,7 +98,7 @@ class TestFSMWithDjangoModel:
         )
 
         with pytest.raises(InvalidTransitionError):
-            transition_shipment(_adapter(shipment), ShipmentStatus.CANCELLED)
+            transition_shipment(shipment, ShipmentStatus.CANCELLED)
 
     def test_mark_in_transit_from_created(self) -> None:
         shipment = Shipment.objects.create(
@@ -110,7 +107,7 @@ class TestFSMWithDjangoModel:
             status=ShipmentStatus.CREATED,
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.IN_TRANSIT)
+        transition_shipment(shipment, ShipmentStatus.IN_TRANSIT)
         assert shipment.status == ShipmentStatus.IN_TRANSIT
 
     def test_mark_returned_from_delivered(self) -> None:
@@ -120,7 +117,7 @@ class TestFSMWithDjangoModel:
             status=ShipmentStatus.DELIVERED,
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.RETURNED)
+        transition_shipment(shipment, ShipmentStatus.RETURNED)
         assert shipment.status == ShipmentStatus.RETURNED
 
     def test_same_status_transition_is_allowed(self) -> None:
@@ -128,7 +125,7 @@ class TestFSMWithDjangoModel:
             provider="dummy", reference_id="order-11"
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.NEW)
+        transition_shipment(shipment, ShipmentStatus.NEW)
         assert shipment.status == ShipmentStatus.NEW
 
     def test_label_ready_no_longer_requires_label_url(self) -> None:
@@ -138,9 +135,5 @@ class TestFSMWithDjangoModel:
             status=ShipmentStatus.CREATED,
         )
 
-        transition_shipment(_adapter(shipment), ShipmentStatus.LABEL_READY)
+        transition_shipment(shipment, ShipmentStatus.LABEL_READY)
         assert shipment.status == ShipmentStatus.LABEL_READY
-
-
-def _adapter(shipment: Shipment) -> Any:
-    return cast(Any, DjangoShipmentAdapter(shipment))

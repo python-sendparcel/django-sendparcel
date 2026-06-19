@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import swapper
 from asgiref.sync import sync_to_async
@@ -10,27 +10,20 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, models
 from sendparcel.exceptions import ShipmentNotFoundError
 
-from sendparcel_django.protocols import DjangoShipmentAdapter
-
 
 class DjangoShipmentRepository:
     """Repository wrapping Django ORM with sync_to_async.
 
-    All read-modify-write operations should be wrapped in
-    ``transaction.atomic()`` with ``select_for_update()`` by the
-    caller to prevent race conditions on concurrent webhook callbacks.
+    Returns raw Django model instances that satisfy the
+    :class:`~sendparcel.protocols.Shipment` protocol structurally.
     """
 
     def _get_model(self) -> type[models.Model]:
         return swapper.load_model("sendparcel_django", "Shipment")  # type: ignore[no-any-return]
 
-    def _wrap(self, obj: models.Model) -> DjangoShipmentAdapter:
-        """Wrap a Django model instance in a protocol adapter."""
-        return DjangoShipmentAdapter(obj)
-
     def get_by_id_sync(
         self, shipment_id: str, *, for_update: bool = False
-    ) -> DjangoShipmentAdapter:
+    ) -> models.Model:
         """Synchronous fetch a shipment by primary key.
 
         Used by sync transactional helpers (e.g. webhook callback
@@ -48,11 +41,11 @@ class DjangoShipmentRepository:
         obj = qs.first()
         if obj is None:
             raise ShipmentNotFoundError(shipment_id)
-        return self._wrap(obj)
+        return obj
 
     async def get_by_id(
         self, shipment_id: str, *, for_update: bool = False
-    ) -> DjangoShipmentAdapter:
+    ) -> models.Model:
         """Fetch a shipment by primary key.
 
         Args:
@@ -67,19 +60,17 @@ class DjangoShipmentRepository:
         obj = await sync_to_async(qs.first)()
         if obj is None:
             raise ShipmentNotFoundError(shipment_id)
-        return self._wrap(obj)
+        return obj
 
-    async def create(self, **kwargs: Any) -> DjangoShipmentAdapter:
+    async def create(self, **kwargs: Any) -> models.Model:
         """Create a new shipment record."""
         model = self._get_model()
-        obj = await sync_to_async(model._default_manager.create)(**kwargs)
-        return self._wrap(obj)
+        return await sync_to_async(model._default_manager.create)(**kwargs)
 
-    async def save(self, shipment: Any) -> DjangoShipmentAdapter:
+    async def save(self, shipment: models.Model) -> models.Model:
         """Persist changes on an existing shipment instance."""
-        model_instance = self._unwrap_shipment(shipment)
-        await sync_to_async(model_instance.save)()
-        return self._wrap(model_instance)
+        await sync_to_async(shipment.save)()
+        return shipment
 
     async def update_status(
         self,
@@ -88,7 +79,7 @@ class DjangoShipmentRepository:
         *,
         for_update: bool = True,
         **fields: Any,
-    ) -> DjangoShipmentAdapter:
+    ) -> models.Model:
         """Update the status (and optional extra fields) of a shipment.
 
         Args:
@@ -99,21 +90,20 @@ class DjangoShipmentRepository:
             **fields: Additional fields to update.
 
         Returns:
-            The updated shipment adapter.
+            The updated shipment model instance.
         """
         shipment = await self.get_by_id(shipment_id, for_update=for_update)
         shipment.status = status
         for key, value in fields.items():
             setattr(shipment, key, value)
-        model_instance = self._unwrap_shipment(shipment)
-        await sync_to_async(model_instance.save)()
+        await sync_to_async(shipment.save)()
         return shipment
 
     async def update_fields(
         self,
         shipment_id: str,
         **fields: Any,
-    ) -> DjangoShipmentAdapter:
+    ) -> models.Model:
         """Atomically update shipment fields by ID.
 
         Uses Django's ``update()`` queryset method for a single atomic
@@ -124,7 +114,7 @@ class DjangoShipmentRepository:
             **fields: Fields to update.
 
         Returns:
-            The updated shipment adapter.
+            The updated shipment model instance.
 
         Raises:
             ShipmentNotFoundError: If no shipment with this ID exists.
@@ -135,7 +125,6 @@ class DjangoShipmentRepository:
         )(**fields)
         if updated_count == 0:
             raise ShipmentNotFoundError(shipment_id)
-        # Return a fresh adapter for the updated row.
         return await self.get_by_id(shipment_id)
 
     async def delete(self, shipment_id: str) -> None:
@@ -146,7 +135,7 @@ class DjangoShipmentRepository:
 
     async def find_by_reference(
         self, provider: str, reference_id: str
-    ) -> DjangoShipmentAdapter | None:
+    ) -> models.Model | None:
         """Find a shipment by provider slug and reference_id.
 
         Returns None if no matching shipment is found.
@@ -157,9 +146,7 @@ class DjangoShipmentRepository:
                 provider=provider, reference_id=reference_id
             ).first
         )()
-        if obj is None:
-            return None
-        return self._wrap(obj)
+        return obj
 
     async def create_with_idempotency_key(
         self,
@@ -167,7 +154,7 @@ class DjangoShipmentRepository:
         status: str,
         reference_id: str,
         **kwargs: Any,
-    ) -> tuple[DjangoShipmentAdapter | None, DjangoShipmentAdapter | None]:
+    ) -> tuple[models.Model | None, models.Model | None]:
         """Atomically check for existing + create if absent.
 
         Uses a database-level unique constraint on (provider, reference_id)
@@ -188,7 +175,7 @@ class DjangoShipmentRepository:
             obj = await sync_to_async(
                 model._default_manager.get,
             )(provider=provider, reference_id=reference_id)
-            return (self._wrap(obj), None)
+            return (obj, None)
         except ObjectDoesNotExist:
             try:
                 obj = await sync_to_async(model._default_manager.create)(
@@ -197,17 +184,11 @@ class DjangoShipmentRepository:
                     reference_id=reference_id,
                     **kwargs,
                 )
-                return (None, self._wrap(obj))
+                return (None, obj)
             except IntegrityError:
                 # Race: another request created the record between our
                 # get() and create().  Do one more lookup to return it.
                 obj = await sync_to_async(
                     model._default_manager.get,
                 )(provider=provider, reference_id=reference_id)
-                return (self._wrap(obj), None)
-
-    def _unwrap_shipment(self, shipment: Any) -> models.Model:
-        """Unwrap a shipment from its adapter if needed."""
-        if isinstance(shipment, DjangoShipmentAdapter):
-            return shipment.wrapped  # type: ignore[no-any-return]
-        return cast(models.Model, shipment)
+                return (obj, None)

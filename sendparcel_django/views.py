@@ -30,7 +30,6 @@ from sendparcel.types import (
 
 from sendparcel_django.conf import get_settings
 from sendparcel_django.dedup import DjangoWebhookDedupStore
-from sendparcel_django.protocols import DjangoShipmentAdapter
 from sendparcel_django.registry import registry as django_registry
 
 logger = get_logger(__name__)
@@ -203,10 +202,7 @@ def _load_shipment_locked(
 def _save_shipment_sync(shipment: Any) -> Any:
     """Persist a shipment inside a sync transaction boundary."""
     with transaction.atomic():
-        if isinstance(shipment, DjangoShipmentAdapter):
-            shipment.wrapped.save()
-        else:
-            shipment.save()
+        shipment.save()
         return shipment
 
 
