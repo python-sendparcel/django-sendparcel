@@ -9,7 +9,6 @@ from sendparcel.exceptions import ProviderNotFoundError
 from sendparcel.provider import BaseProvider
 from sendparcel.registry import PluginRegistry
 from sendparcel.types import AddressInfo, ParcelInfo, ShipmentCreateResult
-from sendparcel_django.registry import DjangoPluginRegistry
 
 
 class FakeProvider(BaseProvider):
@@ -43,14 +42,14 @@ class AnotherProvider(BaseProvider):
 
 
 def test_register_and_get_by_slug() -> None:
-    reg = DjangoPluginRegistry()
+    reg = PluginRegistry()
     reg.register(FakeProvider)
 
     assert reg.get_by_slug("fake") is FakeProvider
 
 
 def test_get_choices_returns_slug_display_pairs() -> None:
-    reg = DjangoPluginRegistry()
+    reg = PluginRegistry()
     reg.register(FakeProvider)
     reg.register(AnotherProvider)
 
@@ -60,12 +59,8 @@ def test_get_choices_returns_slug_display_pairs() -> None:
     assert ("another", "Another") in choices
 
 
-def test_inherits_from_core_plugin_registry() -> None:
-    assert issubclass(DjangoPluginRegistry, PluginRegistry)
-
-
 def test_unregister_removes_provider() -> None:
-    reg = DjangoPluginRegistry()
+    reg = PluginRegistry()
     reg.register(FakeProvider)
     reg.unregister("fake")
 

@@ -17,7 +17,7 @@ from sendparcel.types import (
     LabelInfo,
     ParcelInfo,
     ShipmentCreateResult,
-    ShipmentStatusResponse,
+    ShipmentUpdateResult,
 )
 
 # Global in-memory simulator state
@@ -106,11 +106,11 @@ class DeliverySimProvider(
 
     async def fetch_shipment_status(
         self, **kwargs: Any
-    ) -> ShipmentStatusResponse:
+    ) -> ShipmentUpdateResult:
         shipment_id = self._shipment_id()
         # Default to current status if not in sim state
         current = _sim_state.get(shipment_id, str(self.shipment.status))
-        return ShipmentStatusResponse(status=current)
+        return ShipmentUpdateResult(status=current)
 
     async def cancel_shipment(self, **kwargs: Any) -> bool:
         shipment_id = self._shipment_id()

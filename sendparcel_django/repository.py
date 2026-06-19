@@ -105,7 +105,8 @@ class DjangoShipmentRepository:
         shipment.status = status
         for key, value in fields.items():
             setattr(shipment, key, value)
-        await sync_to_async(shipment.save)()
+        model_instance = self._unwrap_shipment(shipment)
+        await sync_to_async(model_instance.save)()
         return shipment
 
     async def update_fields(

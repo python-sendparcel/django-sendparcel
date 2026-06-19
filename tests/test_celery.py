@@ -12,20 +12,20 @@ class TestTaskImports:
 
     def test_tasks_module_imports(self) -> None:
         """The module should import successfully."""
-        import sendparcel_django.celery as celery_module
+        import sendparcel_django.tasks as tasks_module
 
-        assert hasattr(celery_module, "process_due_retries_task")
-        assert hasattr(celery_module, "cleanup_dedup_task")
-        assert hasattr(celery_module, "poll_shipment_status_task")
-        assert hasattr(celery_module, "poll_all_pending_statuses_task")
-        assert hasattr(celery_module, "_poll_single_shipment_status")
+        assert hasattr(tasks_module, "process_due_retries_task")
+        assert hasattr(tasks_module, "cleanup_dedup_task")
+        assert hasattr(tasks_module, "poll_shipment_status_task")
+        assert hasattr(tasks_module, "poll_all_pending_statuses_task")
+        assert hasattr(tasks_module, "_poll_single_shipment_status")
 
     def test_poll_async_available(self) -> None:
         """_poll_single_shipment_status is always available."""
-        import sendparcel_django.celery as celery_module
+        import sendparcel_django.tasks as tasks_module
 
-        assert hasattr(celery_module, "_poll_single_shipment_status")
-        assert callable(celery_module._poll_single_shipment_status)
+        assert hasattr(tasks_module, "_poll_single_shipment_status")
+        assert callable(tasks_module._poll_single_shipment_status)
 
 
 class TestPollShipmentStatusAsync:
@@ -48,15 +48,15 @@ class TestPollShipmentStatusAsync:
 
         with (
             patch(
-                "sendparcel_django.celery.ShipmentFlow",
+                "sendparcel_django.tasks.ShipmentFlow",
                 return_value=mock_flow,
             ),
             patch(
-                "sendparcel_django.celery.DjangoShipmentRepository",
+                "sendparcel_django.tasks.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
         ):
-            from sendparcel_django.celery import (
+            from sendparcel_django.tasks import (
                 _poll_single_shipment_status,
             )
 
@@ -80,15 +80,15 @@ class TestPollShipmentStatusAsync:
 
         with (
             patch(
-                "sendparcel_django.celery.ShipmentFlow",
+                "sendparcel_django.tasks.ShipmentFlow",
                 return_value=AsyncMock(),
             ),
             patch(
-                "sendparcel_django.celery.DjangoShipmentRepository",
+                "sendparcel_django.tasks.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
         ):
-            from sendparcel_django.celery import (
+            from sendparcel_django.tasks import (
                 _poll_single_shipment_status,
             )
 
@@ -122,15 +122,15 @@ class TestPollShipmentStatusAsync:
 
         with (
             patch(
-                "sendparcel_django.celery.ShipmentFlow",
+                "sendparcel_django.tasks.ShipmentFlow",
                 return_value=mock_flow,
             ),
             patch(
-                "sendparcel_django.celery.DjangoShipmentRepository",
+                "sendparcel_django.tasks.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
         ):
-            from sendparcel_django.celery import (
+            from sendparcel_django.tasks import (
                 _poll_single_shipment_status,
             )
 
@@ -159,15 +159,15 @@ class TestPollShipmentStatusAsync:
 
         with (
             patch(
-                "sendparcel_django.celery.ShipmentFlow",
+                "sendparcel_django.tasks.ShipmentFlow",
                 return_value=mock_flow,
             ),
             patch(
-                "sendparcel_django.celery.DjangoShipmentRepository",
+                "sendparcel_django.tasks.DjangoShipmentRepository",
                 return_value=mock_repo,
             ),
         ):
-            from sendparcel_django.celery import (
+            from sendparcel_django.tasks import (
                 _poll_single_shipment_status,
             )
 

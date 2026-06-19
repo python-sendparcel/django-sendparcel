@@ -17,7 +17,6 @@ def test_all_exports_listed_in_dunder_all() -> None:
     import sendparcel_django
 
     expected = {
-        "DjangoPluginRegistry",
         "DjangoShipmentAdapter",
         "DjangoShipmentRepository",
         "ProviderChoiceForm",

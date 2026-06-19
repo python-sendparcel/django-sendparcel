@@ -19,6 +19,10 @@ class DjangoShipmentAdapter:
     Only the protocol attributes and a few Django-internal helpers
     (``pk``, ``reference_id``) are exposed.  No ``__getattr__`` —
     every attribute is explicit so typos fail fast.
+
+    Immutable fields (``id``, ``provider``, ``reference_id``) are
+    read-only.  Persistence is the repository's responsibility, not
+    the adapter's.
     """
 
     wrapped: Any
@@ -45,10 +49,6 @@ class DjangoShipmentAdapter:
     def provider(self) -> str:
         return str(self.wrapped.provider)
 
-    @provider.setter
-    def provider(self, value: str) -> None:
-        self.wrapped.provider = value
-
     @property
     def external_id(self) -> str:
         return str(self.wrapped.external_id)
@@ -72,9 +72,6 @@ class DjangoShipmentAdapter:
         if ref is None:
             return None
         return str(ref)
-
-    def save(self, *args: Any, **kwargs: Any) -> Any:
-        return self.wrapped.save(*args, **kwargs)
 
 
 @runtime_checkable
