@@ -14,7 +14,7 @@ from sendparcel.exceptions import (
     SendParcelException,
     ShipmentNotFoundError,
 )
-from sendparcel.provider import BaseProvider, PushCallbackProvider
+from sendparcel.provider import BaseProvider
 from sendparcel.types import (
     AddressInfo,
     CallbackContext,
@@ -37,7 +37,7 @@ class DummyShipment:
         pass
 
 
-class DummyProvider(BaseProvider, PushCallbackProvider):
+class DummyProvider(BaseProvider):
     slug = "dummy"
     display_name = "Dummy"
 
@@ -199,7 +199,7 @@ async def test_callback_returns_bad_request_on_invalid_signature() -> None:
     assert data["code"] == "invalid_callback"
 
 
-class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
+class CommunicationErrorProvider(BaseProvider):
     slug = "comm_err"
     display_name = "CommErr"
 
@@ -228,7 +228,7 @@ class CommunicationErrorProvider(BaseProvider, PushCallbackProvider):
         return {}
 
 
-class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
+class TransitionErrorProvider(BaseProvider):
     slug = "trans_err"
     display_name = "TransErr"
 
@@ -257,7 +257,7 @@ class TransitionErrorProvider(BaseProvider, PushCallbackProvider):
         raise InvalidTransitionError("Cannot transition from current state")
 
 
-class GenericErrorProvider(BaseProvider, PushCallbackProvider):
+class GenericErrorProvider(BaseProvider):
     slug = "generic_err"
     display_name = "GenericErr"
 
