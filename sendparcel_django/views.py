@@ -5,32 +5,20 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-from asgiref.sync import sync_to_async
-from django.db import transaction
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from sendparcel.exceptions import (
     CommunicationError,
-    InvalidCallbackError,
-    InvalidTransitionError,
-    ProviderCapabilityError,
-    ProviderNotFoundError,
     SendParcelException,
-    ShipmentNotFoundError,
 )
-from sendparcel.flow import ShipmentFlow
 from sendparcel.logging import get_logger
 from sendparcel.protocols import ShipmentRepository
-from sendparcel.types import (
-    CallbackContext,
-    ShipmentUpdateOutcome,
-    ShipmentUpdateResult,
-)
+from sendparcel.types import CallbackContext
 
+from sendparcel_django.callback import CallbackProcessor, DuplicateCallbackError
 from sendparcel_django.conf import get_settings
-from sendparcel_django.dedup import DjangoWebhookDedupStore
-from sendparcel_django.registry import registry as django_registry
+from sendparcel_django.middleware import _exception_to_response
 
 logger = get_logger(__name__)
 
@@ -87,12 +75,12 @@ async def callback(
         - Payload size limit (default: 64 KB)
         - Source IP verification delegated to provider
     """
-    # Validate content-type early
+    # 1. Validate content-type
     ct_response = _check_content_type(request)
     if ct_response is not None:
         return ct_response
 
-    # Validate payload size early
+    # 2. Validate payload size
     size_response = _check_payload_size(request)
     if size_response is not None:
         return size_response
@@ -102,6 +90,7 @@ async def callback(
 
         repository = cast(ShipmentRepository, DjangoShipmentRepository())
 
+    # 3. Parse JSON
     try:
         payload = (
             cast(dict[str, Any], json.loads(request.body.decode("utf-8")))
@@ -114,7 +103,7 @@ async def callback(
             status=400,
         )
 
-    # Build the callback context — everything the core needs in one object.
+    # 4. Build CallbackContext
     ctx = CallbackContext(
         shipment_id=shipment_id,
         payload=payload,
@@ -123,60 +112,24 @@ async def callback(
         raw_body=bytes(getattr(request, "body", b"")),
     )
 
-    # Deduplication check: skip processing if this payload was already
-    # handled within the configured window.  Returns 200 OK immediately
-    # so the provider does not retry.
-    dedup_store = DjangoWebhookDedupStore()
-    if await dedup_store.is_duplicate(ctx):
+    # 5. Create CallbackProcessor and call process()
+    processor = CallbackProcessor(repository, config)
+    
+    try:
+        outcome = await processor.process(ctx)
+    except DuplicateCallbackError:
+        # 6. Handle DuplicateCallbackError (return 200)
         logger.info("Duplicate webhook for shipment %s, skipping", shipment_id)
         return JsonResponse({"status": "accepted"}, status=200)
-
-    flow = ShipmentFlow(
-        repository=repository,
-        config=config or {},
-        registry=django_registry,
-    )
-
-    try:
-        outcome = await _handle_callback(flow, repository, ctx)
     except CommunicationError as exc:
-        # Store for later retry so transient failures are recovered.
+        # 7. Handle CommunicationError (store retry, return error)
         await _store_failed_callback_for_retry(ctx, exc)
-        return JsonResponse(
-            {"detail": str(exc), "code": "communication_error"},
-            status=502,
-        )
-    except InvalidTransitionError as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "invalid_transition"},
-            status=409,
-        )
-    except InvalidCallbackError as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "invalid_callback"},
-            status=400,
-        )
-    except ShipmentNotFoundError as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "shipment_not_found"},
-            status=404,
-        )
-    except ProviderNotFoundError as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "provider_not_found"},
-            status=404,
-        )
-    except ProviderCapabilityError as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "provider_capability_error"},
-            status=409,
-        )
+        return _exception_to_response(exc)
     except SendParcelException as exc:
-        return JsonResponse(
-            {"detail": str(exc), "code": "sendparcel_error"},
-            status=400,
-        )
+        # 8. Handle other SendParcelException (return error)
+        return _exception_to_response(exc)
 
+    # 9. Serialize and return success response
     return JsonResponse(
         {
             "provider": str(outcome.shipment.provider),
@@ -185,53 +138,6 @@ async def callback(
             "update": _serialize_update(outcome.update),
         }
     )
-
-
-def _load_shipment_locked(
-    repository: ShipmentRepository, shipment_id: str
-) -> Any:
-    """Load a shipment with ``select_for_update`` inside a transaction.
-
-    Returns the shipment object.  The caller is responsible for applying
-    changes back through the repository inside its own ``atomic()`` block.
-    """
-    with transaction.atomic():
-        return repository.get_by_id_sync(shipment_id, for_update=True)
-
-
-def _save_shipment_sync(shipment: Any) -> Any:
-    """Persist a shipment inside a sync transaction boundary."""
-    with transaction.atomic():
-        shipment.save()
-        return shipment
-
-
-async def _handle_callback(
-    flow: ShipmentFlow,
-    repository: ShipmentRepository,
-    ctx: CallbackContext,
-) -> ShipmentUpdateOutcome:
-    """Handle a callback with DB transaction and row-level locking.
-
-    The ``select_for_update`` lock serialises concurrent callbacks for
-    the same shipment.  Async provider calls (HTTP) happen outside the
-    transaction; only ORM reads/writes live inside it.
-    """
-    # 1. Load locked shipment inside a transaction boundary.
-    shipment = await sync_to_async(
-        _load_shipment_locked,
-        thread_sensitive=True,
-    )(repository, ctx.shipment_id)
-
-    # 2. Call async providers outside the transaction.
-    outcome = await flow.handle_callback(ctx, shipment=shipment)
-
-    # 3. Persist the result inside a sync transaction boundary.
-    saved = await sync_to_async(
-        _save_shipment_sync,
-        thread_sensitive=True,
-    )(outcome.shipment)
-    return ShipmentUpdateOutcome(shipment=saved, update=outcome.update)
 
 
 def _serialize_shipment(shipment: Any) -> dict[str, str]:
@@ -244,7 +150,7 @@ def _serialize_shipment(shipment: Any) -> dict[str, str]:
     }
 
 
-def _serialize_update(update: ShipmentUpdateResult) -> dict[str, Any]:
+def _serialize_update(update: Any) -> dict[str, Any]:
     return {
         "status": (
             str(update.get("status"))

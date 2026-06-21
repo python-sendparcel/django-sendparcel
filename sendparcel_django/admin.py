@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import warnings
-from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, cast
 
 import swapper
@@ -38,32 +36,6 @@ def _transition(shipment: Any, trigger_name: str) -> bool:
     except InvalidTransitionError:
         return False
     return True
-
-
-def build_status_actions() -> dict[str, Callable[[Iterable[Any]], int]]:
-    """Create reusable bulk actions for shipment status transitions.
-
-    .. deprecated::
-        Use :class:`ShipmentAdmin` instead which registers all actions
-        as proper Django admin actions.
-    """
-    warnings.warn(
-        "build_status_actions() is deprecated. "
-        "Use ShipmentAdmin with its built-in actions instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    def mark_in_transit(shipments: Iterable[Any]) -> int:
-        return sum(_transition(s, "mark_in_transit") for s in shipments)
-
-    def cancel(shipments: Iterable[Any]) -> int:
-        return sum(_transition(s, "cancel") for s in shipments)
-
-    return {
-        "mark_in_transit": mark_in_transit,
-        "cancel": cancel,
-    }
 
 
 def _get_shipment_model() -> type[models.Model]:

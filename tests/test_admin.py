@@ -13,46 +13,13 @@ from django.contrib.sessions.backends.base import SessionBase
 from django.contrib.sessions.backends.db import SessionStore
 from django.test import RequestFactory
 from sendparcel.enums import ShipmentStatus
-from sendparcel_django.admin import ShipmentAdmin, build_status_actions
+from sendparcel_django.admin import ShipmentAdmin
 
 
 def _shipment_model() -> Any:
     model = swapper.load_model("sendparcel_django", "Shipment")
     assert model is not None
     return model
-
-
-# --- Legacy build_status_actions tests (backward compat) ---
-
-
-class FakeShipment:
-    """Minimal shipment for non-DB admin action tests."""
-
-    def __init__(self, status: str, tracking_number: str = "") -> None:
-        self.status = status
-        self.tracking_number = tracking_number
-
-
-def test_mark_in_transit_action_changes_status() -> None:
-    shipment = FakeShipment(
-        ShipmentStatus.LABEL_READY, tracking_number="TRK-TEST"
-    )
-    with pytest.warns(DeprecationWarning, match="build_status_actions"):
-        actions = build_status_actions()
-
-    actions["mark_in_transit"]([shipment])
-
-    assert shipment.status == ShipmentStatus.IN_TRANSIT
-
-
-def test_cancel_action_changes_status() -> None:
-    shipment = FakeShipment(ShipmentStatus.CREATED)
-    with pytest.warns(DeprecationWarning, match="build_status_actions"):
-        actions = build_status_actions()
-
-    actions["cancel"]([shipment])
-
-    assert shipment.status == ShipmentStatus.CANCELLED
 
 
 # --- ShipmentAdmin registration tests ---
