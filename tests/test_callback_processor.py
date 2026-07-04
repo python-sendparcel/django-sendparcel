@@ -9,7 +9,6 @@ import pytest
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
     CommunicationError,
-    SendParcelException,
 )
 from sendparcel.protocols import ShipmentRepository
 from sendparcel.provider import BaseProvider
@@ -158,27 +157,33 @@ class CommunicationErrorProvider(BaseProvider):
 
 class MockDedupStore:
     """Test double for DjangoWebhookDedupStore."""
-    
+
     def __init__(self, is_dup: bool = False) -> None:
         self.is_dup = is_dup
-    
+        self.released: list[CallbackContext] = []
+
     async def is_duplicate(self, ctx: CallbackContext) -> bool:
         return self.is_dup
+
+    async def release(self, ctx: CallbackContext) -> None:
+        self.released.append(ctx)
 
 
 @pytest.mark.django_db(transaction=True)
 async def test_processor_process_success() -> None:
-    """processor.process(ctx) returns outcome when dedup passes and provider succeeds."""
+    """process(ctx) returns outcome when dedup and provider succeed."""
     django_registry.register(DummyProvider)
     repository = cast(ShipmentRepository, DummyRepository())
     processor = CallbackProcessor(repository)
-    
+
     # Patch dedup to return False (not a duplicate)
-    original_dedup = processor.__class__.__module__
     import sendparcel_django.callback as callback_module
+
     original_store = callback_module.DjangoWebhookDedupStore
-    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(is_dup=False)
-    
+    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(
+        is_dup=False
+    )
+
     try:
         ctx = CallbackContext(
             shipment_id="1",
@@ -187,9 +192,9 @@ async def test_processor_process_success() -> None:
             source_ip="127.0.0.1",
             raw_body=b'{"event": "picked_up"}',
         )
-        
+
         outcome = await processor.process(ctx)
-        
+
         assert outcome.shipment.status == ShipmentStatus.IN_TRANSIT
         assert outcome.update["status"] == ShipmentStatus.IN_TRANSIT
     finally:
@@ -202,12 +207,15 @@ async def test_processor_dedup_skips_duplicate() -> None:
     django_registry.register(DummyProvider)
     repository = cast(ShipmentRepository, DummyRepository())
     processor = CallbackProcessor(repository)
-    
+
     # Patch dedup to return True (duplicate detected)
     import sendparcel_django.callback as callback_module
+
     original_store = callback_module.DjangoWebhookDedupStore
-    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(is_dup=True)
-    
+    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(
+        is_dup=True
+    )
+
     try:
         ctx = CallbackContext(
             shipment_id="1",
@@ -216,10 +224,10 @@ async def test_processor_dedup_skips_duplicate() -> None:
             source_ip="127.0.0.1",
             raw_body=b'{"event": "picked_up"}',
         )
-        
+
         with pytest.raises(DuplicateCallbackError) as exc_info:
             await processor.process(ctx)
-        
+
         assert exc_info.value.shipment_id == "1"
         assert "Duplicate callback for shipment 1" in str(exc_info.value)
     finally:
@@ -230,18 +238,21 @@ async def test_processor_dedup_skips_duplicate() -> None:
 async def test_processor_stores_retry_on_communication_error() -> None:
     """processor stores callback for retry on CommunicationError."""
     django_registry.register(CommunicationErrorProvider)
-    
+
     # Set up shipment with communication error provider
     repository = cast(ShipmentRepository, DummyRepository())
     repository.shipment.provider = "comm_err"
-    
+
     processor = CallbackProcessor(repository)
-    
+
     # Patch dedup to return False (not a duplicate)
     import sendparcel_django.callback as callback_module
+
     original_store = callback_module.DjangoWebhookDedupStore
-    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(is_dup=False)
-    
+    callback_module.DjangoWebhookDedupStore = lambda: MockDedupStore(
+        is_dup=False
+    )
+
     try:
         ctx = CallbackContext(
             shipment_id="1",
@@ -250,18 +261,144 @@ async def test_processor_stores_retry_on_communication_error() -> None:
             source_ip="127.0.0.1",
             raw_body=b'{"event": "status_update"}',
         )
-        
-        # CommunicationError should propagate 
+
+        # CommunicationError should propagate
         with pytest.raises(CommunicationError) as exc_info:
             await processor.process(ctx)
-        
+
         assert "Provider API unreachable" in str(exc_info.value)
-        
+
     finally:
         callback_module.DjangoWebhookDedupStore = original_store
 
 
+@pytest.mark.django_db(transaction=True)
+async def test_failed_processing_releases_dedup_claim() -> None:
+    """A failed callback must not poison dedup: when processing raises,
+    the provider's redelivery of the identical payload has to be
+    processed again, not swallowed as a duplicate."""
+    django_registry.register(CommunicationErrorProvider)
+    repository = cast(ShipmentRepository, DummyRepository())
+    repository.shipment.provider = "comm_err"  # type: ignore[attr-defined]
+    processor = CallbackProcessor(repository)
+
+    ctx = CallbackContext(
+        shipment_id="1",
+        payload={"event": "status_update"},
+        headers={},
+        source_ip="127.0.0.1",
+        raw_body=b'{"event": "status_update"}',
+    )
+
+    with pytest.raises(CommunicationError):
+        await processor.process(ctx)
+
+    # Redelivery: must hit the provider again (raising CommunicationError),
+    # not be short-circuited by DuplicateCallbackError.
+    with pytest.raises(CommunicationError):
+        await processor.process(ctx)
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_successful_processing_keeps_dedup_claim() -> None:
+    """After a successful callback, the identical payload is a duplicate."""
+    django_registry.register(DummyProvider)
+    repository = cast(ShipmentRepository, DummyRepository())
+    processor = CallbackProcessor(repository)
+
+    ctx = CallbackContext(
+        shipment_id="1",
+        payload={"event": "picked_up"},
+        headers={},
+        source_ip="127.0.0.1",
+        raw_body=b'{"event": "picked_up"}',
+    )
+
+    outcome = await processor.process(ctx)
+    assert outcome.shipment.status == ShipmentStatus.IN_TRANSIT
+
+    with pytest.raises(DuplicateCallbackError):
+        await processor.process(ctx)
+
+
+class AtomicProbeProvider(BaseProvider):
+    """Records whether the callback runs inside a DB transaction."""
+
+    slug = "atomic_probe"
+    display_name = "Atomic Probe"
+    seen_atomic: ClassVar[list[bool]] = []
+
+    async def create_shipment(
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
+
+    async def verify_callback(
+        self,
+        ctx: CallbackContext,
+        **kwargs: Any,
+    ) -> None:
+        pass
+
+    async def handle_callback(
+        self,
+        ctx: CallbackContext,
+        **kwargs: Any,
+    ) -> ShipmentUpdateResult:
+        from asgiref.sync import sync_to_async
+        from django.db import connection
+
+        in_atomic = await sync_to_async(
+            lambda: connection.in_atomic_block,
+            thread_sensitive=True,
+        )()
+        type(self).seen_atomic.append(in_atomic)
+        return {"status": ShipmentStatus.IN_TRANSIT}
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_callback_processed_inside_single_locked_transaction() -> None:
+    """The whole callback pipeline (load with select_for_update →
+    provider → persist) must run inside ONE transaction, so the row
+    lock actually serializes concurrent callbacks. Previously the lock
+    was released before the provider call and the write."""
+    from asgiref.sync import sync_to_async
+    from sendparcel_django.models import Shipment
+    from sendparcel_django.repository import DjangoShipmentRepository
+
+    AtomicProbeProvider.seen_atomic.clear()
+    django_registry.register(AtomicProbeProvider)
+
+    shipment = await sync_to_async(Shipment.objects.create)(
+        provider="atomic_probe",
+        status=str(ShipmentStatus.LABEL_READY),
+    )
+    processor = CallbackProcessor(
+        cast(ShipmentRepository, DjangoShipmentRepository())
+    )
+    ctx = CallbackContext(
+        shipment_id=str(shipment.pk),
+        payload={"event": "picked_up"},
+        headers={},
+        source_ip="127.0.0.1",
+        raw_body=b'{"event": "picked_up"}',
+    )
+
+    outcome = await processor.process(ctx)
+
+    assert AtomicProbeProvider.seen_atomic == [True]
+    assert str(outcome.shipment.status) == str(ShipmentStatus.IN_TRANSIT)
+    fresh = await sync_to_async(Shipment.objects.get)(pk=shipment.pk)
+    assert str(fresh.status) == str(ShipmentStatus.IN_TRANSIT)
+
+
 # Test for view layer error handling
+
 
 class RequestStub:
     def __init__(
@@ -285,24 +422,24 @@ class RequestStub:
         self.META: dict[str, Any] = {"REMOTE_ADDR": remote_addr}
 
 
-@pytest.mark.django_db(transaction=True) 
+@pytest.mark.django_db(transaction=True)
 async def test_processor_returns_400_on_invalid_json() -> None:
     """view returns 400 for invalid JSON."""
     from sendparcel_django.views import callback
-    
+
     django_registry.register(DummyProvider)
     repository = cast(ShipmentRepository, DummyRepository())
-    
+
     # Invalid JSON request
     request = RequestStub(body=b"invalid-json{{{")
-    
+
     response = await callback(
         cast(Any, request),
         "1",
         repository=repository,
         config={},
     )
-    
+
     assert response.status_code == 400
     data = json.loads(response.content)
     assert "Invalid JSON" in data["detail"]
@@ -313,23 +450,23 @@ async def test_processor_returns_400_on_invalid_json() -> None:
 async def test_processor_returns_415_on_wrong_content_type() -> None:
     """view returns 415 for wrong content-type."""
     from sendparcel_django.views import callback
-    
+
     django_registry.register(DummyProvider)
     repository = cast(ShipmentRepository, DummyRepository())
-    
+
     # Wrong content-type request
     request = RequestStub(
         payload={"event": "picked_up"},
         content_type="text/plain",
     )
-    
+
     response = await callback(
         cast(Any, request),
-        "1", 
+        "1",
         repository=repository,
         config={},
     )
-    
+
     assert response.status_code == 415
     data = json.loads(response.content)
     assert "Content-Type must be application/json" in data["detail"]

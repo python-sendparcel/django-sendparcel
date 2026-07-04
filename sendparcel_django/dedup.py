@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 
 from asgiref.sync import sync_to_async
@@ -86,6 +87,24 @@ class DjangoWebhookDedupStore:
             return False
 
         return False
+
+    async def release(self, ctx: CallbackContext) -> None:
+        """Remove the dedup claim for this payload.
+
+        Called when processing fails after the claim was inserted, so
+        that a provider redelivery of the identical payload is
+        processed instead of being swallowed as a duplicate.
+        """
+        # Suppress OperationalError: table missing means nothing
+        # was claimed in the first place.
+        with contextlib.suppress(OperationalError):
+            await sync_to_async(
+                WebhookDedup.objects.filter(
+                    shipment_id=ctx.shipment_id,
+                    payload_hash=ctx.dedup_hash,
+                ).delete,
+                thread_sensitive=True,
+            )()
 
     async def cleanup_old_entries(self) -> int:
         """Remove dedup records older than the window.

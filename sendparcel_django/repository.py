@@ -93,8 +93,7 @@ class DjangoShipmentRepository:
             The updated shipment model instance.
         """
         shipment = await self.get_by_id(shipment_id, for_update=for_update)
-        shipment.status = status
-        for key, value in fields.items():
+        for key, value in {"status": status, **fields}.items():
             setattr(shipment, key, value)
         await sync_to_async(shipment.save)()
         return shipment

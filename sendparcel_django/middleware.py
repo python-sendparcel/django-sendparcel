@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import cast
 
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from sendparcel.exceptions import (
     CommunicationError,
@@ -31,7 +33,7 @@ _EXCEPTION_MAP: list[tuple[type[SendParcelException], int, str]] = [
 
 
 def _exception_to_response(
-    exception: Exception,
+    exception: SendParcelException,
 ) -> HttpResponse:
     """Convert a sendparcel exception to an HTTP response."""
     for exc_type, status_code, code in _EXCEPTION_MAP:
@@ -41,17 +43,22 @@ def _exception_to_response(
                 status=status_code,
             )
     return JsonResponse(
-        {"detail": str(exception)},
-        status=500,
+        {"detail": str(exception), "code": "sendparcel_error"},
+        status=400,
     )
 
 
 class SendParcelExceptionMiddleware:
     """Map sendparcel exceptions to appropriate HTTP responses.
 
-    Supports both WSGI (sync) and ASGI (async) request/response cycles.
-    More specific exception types are checked first.
+    More specific exception types are checked first. Exceptions that
+    are not :class:`SendParcelException` fall through to Django's own
+    error handling — they are never converted to JSON here, so
+    internal exception text is not leaked to clients.
     """
+
+    sync_capable = True
+    async_capable = True
 
     def __init__(
         self,
@@ -61,30 +68,31 @@ class SendParcelExceptionMiddleware:
         ),
     ) -> None:
         self.get_response = get_response
+        self._is_async = iscoroutinefunction(get_response)
+        if self._is_async:
+            markcoroutinefunction(self)
 
-    # ── WSGI (sync) ──────────────────────────────────────────────
+    def __call__(
+        self, request: HttpRequest
+    ) -> HttpResponse | Awaitable[HttpResponse]:
+        if self._is_async:
+            return self.__acall__(request)
+        return self.get_response(request)
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        response = self.get_response(request)
-        return response
+    async def __acall__(self, request: HttpRequest) -> HttpResponse:
+        try:
+            response = self.get_response(request)
+            if asyncio.iscoroutine(response):
+                return cast("HttpResponse", await response)
+            return cast("HttpResponse", response)
+        except SendParcelException as exc:
+            return _exception_to_response(exc)
 
     def process_exception(
         self,
         request: HttpRequest,
         exception: Exception,
     ) -> HttpResponse | None:
-        return _exception_to_response(exception)
-
-    # ── ASGI (async) ─────────────────────────────────────────────
-
-    async def __acall__(self, request: HttpRequest) -> HttpResponse:
-        try:
-            response = self.get_response(request)
-            # If get_response returns a coroutine (async view), await it.
-            # Use asyncio.iscoroutine() for reliable detection instead of
-            # hasattr("__await__") which may miss some ASGI cases.
-            if asyncio.iscoroutine(response):
-                response = await response
-            return response
-        except SendParcelException as exc:
-            return _exception_to_response(exc)
+        if isinstance(exception, SendParcelException):
+            return _exception_to_response(exception)
+        return None

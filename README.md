@@ -7,14 +7,13 @@
 
 Django adapter for the [python-sendparcel](https://github.com/python-sendparcel/python-sendparcel) multi-carrier shipping library.
 
-> **Alpha (0.1.0)** — API may change between minor releases. Pin your dependency if you use it in production.
+> **Alpha (0.3.0)** — API may change between minor releases. Pin your dependency if you use it in production.
 
 ## Features
 
 - **Shipment model with FSM** — built-in `Shipment` model with finite-state-machine transitions (new → created → label_ready → in_transit → delivered, etc.)
 - **Swappable Shipment model** — replace the default `Shipment` with your own via `swapper`, similar to Django's `AUTH_USER_MODEL`
-- **Protocol adapter** — `DjangoShipmentAdapter` bridges the Django Shipment model to the framework-agnostic core
-- **Django ORM repository** — `DjangoShipmentRepository` provides async-compatible persistence via `sync_to_async`
+- **Django ORM repository** — `DjangoShipmentRepository` provides async-compatible persistence via `sync_to_async`; model instances satisfy the core `Shipment` protocol structurally (no adapter layer)
 - **Provider plugin registry** — auto-discovers shipping provider plugins at app startup
 - **Callback endpoint** — receives provider status webhooks and routes them through `ShipmentFlow`
 - **Admin integration** — `ShipmentAdmin` with list filters, search, and bulk actions (mark in transit, mark delivered, cancel)
@@ -101,6 +100,13 @@ This exposes the callback endpoint at `sendparcel/callback/<shipment_id>/` for r
 
 Successful callback responses include `provider`, `status`, `shipment`, and
 `update`. The adapter no longer persists label URLs on shipment models.
+
+> **Webhook security:** the callback endpoint is CSRF-exempt and performs
+> no authentication of its own — authenticity checking is delegated
+> entirely to the provider's `verify_callback` (e.g. InPost verifies the
+> source IP). Only enable providers whose `verify_callback` performs real
+> verification, or protect the endpoint at the web-server/proxy layer
+> (IP allowlist, shared-secret path, mTLS).
 
 ### 5. (Optional) Add the exception middleware
 

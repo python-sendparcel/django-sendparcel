@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from sendparcel.exceptions import (
@@ -59,7 +59,7 @@ async def callback(
     *,
     repository: ShipmentRepository | None = None,
     config: dict[str, Any] | None = None,
-) -> JsonResponse:
+) -> HttpResponse:
     """Handle provider callbacks through the core shipment flow.
 
     The callback path is wrapped in a DB transaction with row-level
@@ -114,7 +114,7 @@ async def callback(
 
     # 5. Create CallbackProcessor and call process()
     processor = CallbackProcessor(repository, config)
-    
+
     try:
         outcome = await processor.process(ctx)
     except DuplicateCallbackError:

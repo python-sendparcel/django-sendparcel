@@ -118,25 +118,30 @@ class HealthCheckView(View):
 
     def _check_providers(self) -> dict[str, Any]:
         """Check provider availability."""
+        import inspect
+
         from sendparcel_django.registry import registry
 
         providers: dict[str, Any] = {}
-        provider_slugs = self.providers or [
-            slug for slug in registry._providers
-        ]
+        provider_slugs = self.providers or registry.slugs()
 
         for slug in provider_slugs:
             try:
                 provider_class = registry.get_by_slug(slug)
-                # Check if provider has a health check method
-                if hasattr(provider_class, "health_check"):
-                    result = provider_class.health_check()
+                health_check_fn = getattr(provider_class, "health_check", None)
+                # Only classmethods are callable on the class itself;
+                # an instance method here would raise and be reported
+                # as a provider error.
+                if health_check_fn is not None and inspect.ismethod(
+                    health_check_fn
+                ):
+                    result = health_check_fn()
                     providers[slug] = {
                         "status": result.get("status", "ok"),
                         "detail": result.get("detail", ""),
                     }
                 else:
-                    # No health check method — assume ok
+                    # No class-level health check — assume ok
                     providers[slug] = {"status": "ok"}
             except Exception as exc:
                 logger.warning(

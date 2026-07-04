@@ -1,6 +1,6 @@
 [project]
 name = "django-sendparcel"
-version = "0.2.0"
+version = "0.3.0"
 description = "Django adapter for python-sendparcel"
 readme = "README.md"
 license = { text = "MIT" }
@@ -8,7 +8,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Dominik Kozaczko", email = "dominik@kozaczko.info" }]
 dependencies = [
   "Django>=5.2",
-  "python-sendparcel>=0.1.1",
+  "python-sendparcel>=0.3.0",
   "anyio>=4.0",
   "swapper>=1.4",
   "django-tasks>=0.12.0",

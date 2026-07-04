@@ -31,6 +31,7 @@ from django_tasks import task
 from sendparcel.enums import ShipmentStatus
 from sendparcel.flow import ShipmentFlow
 from sendparcel.logging import get_logger
+from sendparcel.protocols import ShipmentRepository
 
 from sendparcel_django.dedup import DjangoWebhookDedupStore
 from sendparcel_django.registry import registry
@@ -85,7 +86,7 @@ async def _poll_single_shipment_status(
     """
     _ensure_registry_discovered()
 
-    repository = DjangoShipmentRepository()
+    repository = cast("ShipmentRepository", DjangoShipmentRepository())
     shipment = await repository.get_by_id(shipment_id)
     if shipment is None:
         logger.warning("Shipment %s not found for polling", shipment_id)
@@ -162,9 +163,11 @@ async def process_due_retries_task(
         count = await process_due_retries(
             retry_store=DjangoCallbackRetryStore(),
             flow=ShipmentFlow(
-                repository=DjangoShipmentRepository(),
+                repository=cast(
+                    "ShipmentRepository", DjangoShipmentRepository()
+                ),
             ),
-            repository=DjangoShipmentRepository(),
+            repository=cast("ShipmentRepository", DjangoShipmentRepository()),
             max_attempts=max_attempts,
             backoff_seconds=backoff_seconds,
             limit=limit,

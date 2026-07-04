@@ -31,7 +31,7 @@ def _ctx(
 
 class TestCallbackContextDedupHash:
     def test_deterministic_across_insertion_order(self) -> None:
-        """Identical payloads must produce the same hash regardless of key order."""
+        """Identical payloads hash the same regardless of key order."""
         a = _ctx(payload={"b": 2, "a": 1})
         b = _ctx(payload={"a": 1, "b": 2})
         assert a.dedup_hash == b.dedup_hash
@@ -52,7 +52,7 @@ class TestCallbackContextDedupHash:
         assert a.dedup_hash != b.dedup_hash
 
     def test_headers_do_not_affect_hash(self) -> None:
-        """Headers and source_ip must not affect the dedup hash — only payload."""
+        """Headers and source_ip must not affect the dedup hash."""
         a = _ctx(payload={"status": "created"}, headers={"X-Token": "abc"})
         b = _ctx(payload={"status": "created"}, headers={"X-Token": "xyz"})
         assert a.dedup_hash == b.dedup_hash

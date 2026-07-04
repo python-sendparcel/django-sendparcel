@@ -29,6 +29,16 @@ class ShipmentModelMixin(models.Model):
 
     class Meta:
         abstract = True
+        constraints: ClassVar[list[Any]] = [
+            # Backs create_with_idempotency_key(): resolves the race
+            # where two concurrent creates both see "not found". Blank
+            # reference_ids are exempt — only keyed creates are unique.
+            models.UniqueConstraint(
+                fields=["provider", "reference_id"],
+                condition=~models.Q(reference_id=""),
+                name="%(app_label)s_%(class)s_provider_reference_unique",
+            ),
+        ]
 
 
 class Shipment(ShipmentModelMixin):

@@ -79,6 +79,30 @@ class TestShipmentConcreteModel:
         assert str(shipment) == "Shipment 42 (dummy: new)"
 
 
+@pytest.mark.django_db(transaction=True)
+class TestShipmentIdempotencyConstraint:
+    """create_with_idempotency_key documents a DB-level unique
+    constraint on (provider, reference_id); it must actually exist for
+    the race-resolution path to work."""
+
+    def test_duplicate_provider_reference_rejected(self) -> None:
+        from django.db import IntegrityError
+
+        Shipment.objects.create(provider="dummy", reference_id="ord-1")
+        with pytest.raises(IntegrityError):
+            Shipment.objects.create(provider="dummy", reference_id="ord-1")
+
+    def test_blank_reference_ids_are_not_constrained(self) -> None:
+        Shipment.objects.create(provider="dummy")
+        Shipment.objects.create(provider="dummy")
+        assert Shipment.objects.filter(provider="dummy").count() == 2
+
+    def test_same_reference_different_provider_allowed(self) -> None:
+        Shipment.objects.create(provider="dummy", reference_id="ord-1")
+        Shipment.objects.create(provider="other", reference_id="ord-1")
+        assert Shipment.objects.filter(reference_id="ord-1").count() == 2
+
+
 @pytest.mark.django_db
 class TestMigrations:
     def test_migration_is_consistent(self) -> None:
