@@ -18,6 +18,7 @@ from sendparcel.types import CallbackContext
 
 from sendparcel_django.callback import CallbackProcessor, DuplicateCallbackError
 from sendparcel_django.conf import get_settings
+from sendparcel_django.ip_resolution import resolve_client_ip
 from sendparcel_django.middleware import _exception_to_response
 
 logger = get_logger(__name__)
@@ -108,7 +109,7 @@ async def callback(
         shipment_id=shipment_id,
         payload=payload,
         headers=dict(getattr(request, "headers", {})),
-        source_ip=request.META.get("REMOTE_ADDR", ""),
+        source_ip=resolve_client_ip(request.META),
         raw_body=bytes(getattr(request, "body", b"")),
     )
 

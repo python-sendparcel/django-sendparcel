@@ -6,6 +6,7 @@ import json
 from typing import Any, ClassVar, cast
 
 import pytest
+from django.test import override_settings
 from sendparcel.enums import ShipmentStatus
 from sendparcel.exceptions import (
     CommunicationError,
@@ -619,3 +620,123 @@ async def test_concurrent_callbacks_are_serialized() -> None:
     # The transaction.atomic() + select_for_update() ensures the
     # callbacks are serialized — both complete successfully.
     assert repo.shipment.status == ShipmentStatus.IN_TRANSIT
+
+
+class IpVerifyingProvider(BaseProvider):
+    """Provider that records the source_ip it receives for verification."""
+
+    slug = "ip_verify"
+    display_name = "IP Verifying"
+    verified_ips: ClassVar[list[str]] = []
+
+    async def create_shipment(
+        self,
+        *,
+        sender_address: AddressInfo,
+        receiver_address: AddressInfo,
+        parcels: list[ParcelInfo],
+        **kwargs: Any,
+    ) -> ShipmentCreateResult:
+        return {"external_id": "ext-1"}
+
+    async def verify_callback(
+        self,
+        ctx: CallbackContext,
+        **kwargs: Any,
+    ) -> None:
+        IpVerifyingProvider.verified_ips.append(ctx.source_ip)
+
+    async def handle_callback(
+        self,
+        ctx: CallbackContext,
+    ) -> ShipmentUpdateResult:
+        return {"status": ShipmentStatus.IN_TRANSIT}
+
+
+@pytest.mark.django_db(transaction=True)
+@override_settings(TRUSTED_PROXIES=["10.0.0.0/8"])
+async def test_callback_resolves_xff_behind_trusted_proxy() -> None:
+    """Behind a trusted proxy, source_ip is resolved from XFF."""
+    IpVerifyingProvider.verified_ips.clear()
+    django_registry.register(IpVerifyingProvider)
+    shipment = DummyShipment()
+    shipment.provider = "ip_verify"
+    repo = Repo()
+    repo.shipment = shipment
+
+    request = RequestStub(
+        payload={"event": "picked_up"},
+        headers={},
+        remote_addr="10.0.0.1",  # Trusted proxy
+    )
+    # Simulate X-Forwarded-For: carrier IP behind proxy
+    request.META["HTTP_X_FORWARDED_FOR"] = "91.216.25.10"
+
+    await _callback_response(
+        request,
+        "1",
+        repository=repo,
+        config={},
+    )
+
+    assert len(IpVerifyingProvider.verified_ips) == 1
+    assert IpVerifyingProvider.verified_ips[0] == "91.216.25.10"
+
+
+@pytest.mark.django_db(transaction=True)
+@override_settings(TRUSTED_PROXIES=["10.0.0.0/8"])
+async def test_callback_ignores_xff_from_untrusted_remote() -> None:
+    """Untrusted REMOTE_ADDR can't spoof carrier IP via XFF."""
+    IpVerifyingProvider.verified_ips.clear()
+    django_registry.register(IpVerifyingProvider)
+    shipment = DummyShipment()
+    shipment.provider = "ip_verify"
+    repo = Repo()
+    repo.shipment = shipment
+
+    request = RequestStub(
+        payload={"event": "picked_up"},
+        headers={},
+        remote_addr="192.168.1.100",  # NOT trusted
+    )
+    request.META["HTTP_X_FORWARDED_FOR"] = "91.216.25.10"  # Spoofed
+
+    await _callback_response(
+        request,
+        "1",
+        repository=repo,
+        config={},
+    )
+
+    assert len(IpVerifyingProvider.verified_ips) == 1
+    # Should use REMOTE_ADDR, not spoofed XFF
+    assert IpVerifyingProvider.verified_ips[0] == "192.168.1.100"
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_callback_without_trusted_proxies_uses_remote_addr() -> None:
+    """Without TRUSTED_PROXIES, source_ip = REMOTE_ADDR (backward compat)."""
+    IpVerifyingProvider.verified_ips.clear()
+    django_registry.register(IpVerifyingProvider)
+    shipment = DummyShipment()
+    shipment.provider = "ip_verify"
+    repo = Repo()
+    repo.shipment = shipment
+
+    request = RequestStub(
+        payload={"event": "picked_up"},
+        headers={},
+        remote_addr="91.216.25.10",
+    )
+    request.META["HTTP_X_FORWARDED_FOR"] = "192.168.1.100"
+
+    await _callback_response(
+        request,
+        "1",
+        repository=repo,
+        config={},
+    )
+
+    assert len(IpVerifyingProvider.verified_ips) == 1
+    # No TRUSTED_PROXIES → REMOTE_ADDR used directly
+    assert IpVerifyingProvider.verified_ips[0] == "91.216.25.10"
