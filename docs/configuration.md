@@ -41,6 +41,27 @@ Each provider reads its own settings via `self.get_setting(name, default)` in it
 SENDPARCEL_DEFAULT_PROVIDER = "dummy"
 ```
 
+## SENDPARCEL_TRUSTED_PROXIES
+
+**Optional.** IPs/CIDRs of reverse proxies (nginx, Cloudflare, load
+balancers) sitting in front of the webhook callback view.
+
+```python
+SENDPARCEL_TRUSTED_PROXIES = ["10.0.0.0/8"]
+```
+
+This governs the `source_ip` the provider's `verify_callback` sees —
+essential for providers that authenticate webhooks by source-IP
+allowlist (e.g. InPost). When `REMOTE_ADDR` falls within a trusted
+network, the callback view resolves the real client IP by walking
+`X-Forwarded-For` right-to-left, skipping trusted-proxy hops and using
+the first untrusted address. The left-most XFF value is never trusted
+(it is client-controlled), and a request from an untrusted
+`REMOTE_ADDR` ignores `X-Forwarded-For` entirely, so carrier IPs cannot
+be spoofed.
+
+Unset or empty (the default), `source_ip` is `REMOTE_ADDR` unchanged.
+
 ## Swappable Models
 
 ### ShipmentModelMixin

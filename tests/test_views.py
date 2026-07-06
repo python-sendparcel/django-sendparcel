@@ -654,7 +654,7 @@ class IpVerifyingProvider(BaseProvider):
 
 
 @pytest.mark.django_db(transaction=True)
-@override_settings(TRUSTED_PROXIES=["10.0.0.0/8"])
+@override_settings(SENDPARCEL_TRUSTED_PROXIES=["10.0.0.0/8"])
 async def test_callback_resolves_xff_behind_trusted_proxy() -> None:
     """Behind a trusted proxy, source_ip is resolved from XFF."""
     IpVerifyingProvider.verified_ips.clear()
@@ -684,7 +684,7 @@ async def test_callback_resolves_xff_behind_trusted_proxy() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-@override_settings(TRUSTED_PROXIES=["10.0.0.0/8"])
+@override_settings(SENDPARCEL_TRUSTED_PROXIES=["10.0.0.0/8"])
 async def test_callback_ignores_xff_from_untrusted_remote() -> None:
     """Untrusted REMOTE_ADDR can't spoof carrier IP via XFF."""
     IpVerifyingProvider.verified_ips.clear()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from django.conf import settings
@@ -21,6 +21,7 @@ class SendparcelSettings:
     CALLBACK_RETRY_BACKOFF_BASE: int = 60
     CALLBACK_RETRY_BACKOFF_JITTER: float = 0.1  # 10% jitter
     WEBHOOK_CONTENT_TYPE: str = "application/json"
+    TRUSTED_PROXIES: list[str] = field(default_factory=list)
 
 
 def get_settings() -> SendparcelSettings:
@@ -57,4 +58,8 @@ def get_settings() -> SendparcelSettings:
             "SENDPARCEL_WEBHOOK_CONTENT_TYPE",
             "application/json",
         ),
+        TRUSTED_PROXIES=getattr(
+            settings, "SENDPARCEL_TRUSTED_PROXIES", []
+        )
+        or [],
     )
